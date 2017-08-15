@@ -7,14 +7,17 @@ lib = cdll.LoadLibrary('./svmlib.so')
 dim = lib.get_dim
 dim.restype = c_size_t
 
+Ridge_new = lib.Ridge_new
+Ridge_new.restype = c_void_p
+
 SVM_new = lib.SVM_new
 SVM_new.restype = c_void_p
 
 Data_free = lib.Data_free
 Data_free.argtypes = [c_void_p]
 
-SVM_free = lib.SVM_free
-SVM_free.argtypes = [c_void_p]
+Model_free = lib.Model_free
+Model_free.argtypes = [c_void_p]
 
 get = lib.get_data
 get.restype = c_void_p
@@ -38,47 +41,48 @@ Free.argtypes = [c_void_p]
 if dim() is not 2:
     print("Dimension is not 2.")
     exit(0)
-svm = SVM_new()
+ridge = Ridge_new()
 data = get()
 
 def obj_func(x_grid, y_grid):
-    global svm
+    global ridge
     global data
     f = []
-    for x in x_grid:
+    for y in y_grid:
         f_r = []
-        for y in y_grid:
-            f_r.append(Obj_Func(svm, data, c_double(x), c_double(y)))
+        for x in x_grid:
+            f_r.append(Obj_Func(ridge, data, c_double(x), c_double(y)))
         f.append(f_r)
     return f
 
-x_grid = np.linspace(-20, 50, 251)
-y_grid = np.linspace(-47, 23, 251)
-f_grid = obj_func(x_grid,y_grid)
-X, Y = np.meshgrid(x_grid, y_grid)
-contours = plt.contour(X, Y, f_grid, 20)
-plt.clabel(contours)
-
 # Plot SGD
-step_sgd = cast(SGD(svm, c_int(1600), data), POINTER(c_double))
+step_sgd = cast(SGD(ridge, c_int(1600), data), POINTER(c_double))
 for i in range(2, 3000, 2):
     ax = plt.axes()
     ax.annotate('', xy=(step_sgd[i], step_sgd[i+1]), xytext=(step_sgd[i-2], step_sgd[i-1]),
             arrowprops={'arrowstyle': '->', 'color':'blue', 'lw':1})
 
-SVM_free(svm)
-svm = SVM_new()
+Model_free(ridge)
+ridge = Ridge_new()
 
 # Plot SVRG
-step_svrg = cast(SVRG(svm, c_int(2), data), POINTER(c_double))
-for i in range(2, 3000, 2):
-    ax = plt.axes()
-    ax.annotate('', xy=(step_svrg[i], step_svrg[i+1]), xytext=(step_svrg[i-2], step_svrg[i-1]),
-            arrowprops={'arrowstyle': '->', 'color':'red', 'lw':1})
+step_svrg = cast(SVRG(ridge, c_int(2), data), POINTER(c_double))
+# for i in range(2, 3000, 2):
+#     ax = plt.axes()
+#     ax.annotate('', xy=(step_svrg[i], step_svrg[i+1]), xytext=(step_svrg[i-2], step_svrg[i-1]),
+#             arrowprops={'arrowstyle': '->', 'color':'red', 'lw':1})
+
+x_grid = np.linspace(int(step_sgd[2998] - 30), int(step_sgd[2998] + 30), 251)
+y_grid = np.linspace(int(step_sgd[2999] - 30), int(step_sgd[2999] + 30), 251)
+f_grid = obj_func(x_grid, y_grid)
+# np.reshape(f_grid, (251, 251))
+X, Y = np.meshgrid(x_grid, y_grid)
+contours = plt.contour(X, Y, f_grid, 20)
+plt.clabel(contours)
 plt.show()
 
 # Free space
-SVM_free(svm)
+Model_free(ridge)
 Data_free(data)
 Free(step_sgd)
 Free(step_svrg)

@@ -97,7 +97,8 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t outter_
     delete[] inner_weights;
     delete[] new_weights;
 
-    printf("Total Iteration No.: %zd\n", total_iterations);
+    if(is_debug_mode)
+        printf("Total Iteration No.: %zd\n", total_iterations);
     if(is_store_weight)
         return stored_weights;
     return NULL;
