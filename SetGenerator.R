@@ -66,7 +66,7 @@ for(i in 1001:2000) {
 
 df <- data.frame(gra1, gra2, gra3, label)
 
-write.table(df, "/Users/Kevin/Desktop/Laboratory(CUHK)/SVM/L1SVM/train(2d).dat")
+write.table(df, "train(2d).dat")
 
 # Print Points
 # plot3d(gra1, gra2, gra3, col = "red", size = 1, xlab="x", ylab = "y", zlab = "z"

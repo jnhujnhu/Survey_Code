@@ -29,9 +29,8 @@ double svm::zero_oracle(Data* data, double* weights) const {
     return _F;
 }
 
-double* svm::first_oracle(Data* data, int given_index, double* weights) const{
+void svm::first_oracle(Data* data, double* _pF, int given_index, double* weights) const{
     if(weights == NULL) weights = m_weights;
-    double* _pF = new double[MAX_DIM];
     for(size_t i = 0; i < MAX_DIM; i ++) {
         _pF[i] = weights[i] * (*m_params);
     }
@@ -44,27 +43,26 @@ double* svm::first_oracle(Data* data, int given_index, double* weights) const{
             _pF[i] -= (*data)[given_index] * (*data)(given_index, i);
         }
     }
-    return _pF;
 }
 
-double* svm::first_oracle(Data* data, bool is_stochastic
+void svm::first_oracle(Data* data, double* _pF, bool is_stochastic
     , std::default_random_engine* generator
     , std::uniform_int_distribution<int>* distribution, double* weights) const {
     if(weights == NULL) weights = m_weights;
     if(is_stochastic) {
         int rand_samp = (*distribution)(*generator);
-        return first_oracle(data, rand_samp, weights);
+        first_oracle(data, _pF, rand_samp, weights);
     }
     else {
-        double* _pF = new double[MAX_DIM];
         for(size_t i = 0; i < data->size(); i ++) {
-            double* _pf = first_oracle(data, i, weights);
+            double* _pf = new double[MAX_DIM];
+            first_oracle(data, _pf, i, weights);
             for(size_t j = 0; j < MAX_DIM; j ++)
                 _pF[j] += _pf[j];
+            delete[] _pf;
         }
         for(size_t j = 0; j < MAX_DIM; j ++)
             _pF[j] /= data->size();
-        return _pF;
     }
 }
 

@@ -36,6 +36,7 @@ Free.argtypes = [c_void_p]
 
 # Only show 2D cost function
 if dim() is not 2:
+    print("Dimension is not 2.")
     exit(0)
 svm = SVM_new()
 data = get()
@@ -59,7 +60,6 @@ contours = plt.contour(X, Y, f_grid, 20)
 plt.clabel(contours)
 
 # Plot SGD
-
 step_sgd = cast(SGD(svm, c_int(1600), data), POINTER(c_double))
 for i in range(2, 3000, 2):
     ax = plt.axes()

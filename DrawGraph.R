@@ -1,7 +1,7 @@
 library(rgl)
 library(fMultivar)
 
-table <- read.table("/Users/Kevin/Desktop/Laboratory(CUHK)/SVM/L1SVM/train(2d).dat", header = F)
+table <- read.table("train(2d).dat", header = F)
 listx <- as.numeric(unlist(as.list(table["V2"])))
 listy<- as.numeric(unlist(as.list(table["V3"])))
 listz <- as.numeric(unlist(as.list(table["V4"])))

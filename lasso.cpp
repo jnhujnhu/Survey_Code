@@ -11,20 +11,18 @@ double lasso::zero_oracle(Data* data, double* weights) const {
     return 1.0;
 }
 
-double* lasso::first_oracle(Data* data, bool is_stochastic
+void lasso::first_oracle(Data* data, double* _pF, bool is_stochastic
     , std::default_random_engine* generator
     , std::uniform_int_distribution<int>* distribution
     , double* weights) const {
     if(weights == NULL) weights = m_weights;
     if(is_stochastic) {
         int rand_samp = (*distribution)(*generator);
-        return first_oracle(data, rand_samp, weights);
+        first_oracle(data, _pF, rand_samp, weights);
     }
-    return NULL;
 }
 
-double* lasso::first_oracle(Data* data, int given_index, double* weights) const {
-    return NULL;
+void lasso::first_oracle(Data* data, double* _pF, int given_index, double* weights) const {
 }
 
 int lasso::classify(double* sample) const{

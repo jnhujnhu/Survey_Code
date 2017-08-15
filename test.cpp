@@ -6,6 +6,7 @@
 #include "data.hpp"
 #include "grad_desc.hpp"
 #include "svm.hpp"
+#include <sys/time.h>
 using namespace std;
 
 size_t MAX_DIM = 2;
@@ -17,7 +18,7 @@ Data* parse_data(char* data_dir) {
     Data* data = new Data(mN);
     double x, y, z;
     int label, _index = 0;
-    char _no[30]; //Be careful of using char*!
+    char _no[30];
     while(scanf("%s %lf %lf %lf %d", _no, &x, &y, &z, &label) != EOF) {
         (*data)(_index, 0) = x;
         (*data)(_index, 1) = y;
@@ -75,9 +76,14 @@ extern "C" {
 //     try {
 //         svm* SVM = new svm(0.0001);
 //         Data* data = parse_data(data_dir);
-//         //grad_desc::SGD(data, SVM, 500000, false, true);
-//         grad_desc::SVRG(data, SVM, 10, false, true);
-//
+//         grad_desc::SGD(data, SVM, 500000, false, true);
+//         // :TIMING TEST
+//         // struct timeval tp;
+//         // gettimeofday(&tp, NULL);
+//         // long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//         //grad_desc::SVRG(data, SVM, 15, false, true);
+//         // gettimeofday(&tp, NULL);
+//         // printf("Execuate time: %ld \n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
 //         delete SVM;
 //         delete data;
 //     } catch(string c) {
