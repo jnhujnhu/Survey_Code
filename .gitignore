@@ -34,6 +34,7 @@ a9a
 *.lib
 
 # Executables
+test
 *.exe
 *.out
 *.app

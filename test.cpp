@@ -6,6 +6,7 @@
 #include "data.hpp"
 #include "grad_desc.hpp"
 #include "svm.hpp"
+#include "logistic.hpp"
 #include "ridge.hpp"
 #include <sys/time.h>
 using namespace std;
@@ -83,18 +84,18 @@ extern "C" {
 int main() {
     char* data_dir = (char*) "train(2d).dat";
     try {
-        svm* Ridge= new svm(0.0001);
+        logistic* logis= new logistic(0.0001);
         Data* data = parse_data(data_dir);
         double _wei[2] = {50, -50};
-        Ridge->set_init_weights(_wei);
-        grad_desc::SVRG(data, Ridge, 50, false, true);
+        logis->set_init_weights(_wei);
+        grad_desc::SVRG(data, logis, 20, false, true);
         // :TIMING TEST
         // struct timeval tp;
         // gettimeofday(&tp, NULL);
         // long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         // gettimeofday(&tp, NULL);
         // printf("Execuate time: %ld \n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
-        delete Ridge;
+        delete logis;
         delete data;
     } catch(string c) {
         cerr << c << endl;
