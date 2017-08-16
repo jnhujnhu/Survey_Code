@@ -4,6 +4,10 @@
 # Intellij
 /.idea/
 
+#dataset
+a9a
+*.dat
+
 # Compiled Object files
 *.slo
 *.lo

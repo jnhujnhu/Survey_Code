@@ -51,7 +51,7 @@ extern "C" {
     }
     ridge* Ridge_new() {
         ridge* Ridge = new ridge(0.01);
-        double weight[2] = {-10, -10};
+        double weight[2] = {50, -30};
         Ridge->set_init_weights(weight);
         return Ridge;
     }
@@ -69,6 +69,10 @@ extern "C" {
         double* stored_weights = grad_desc::SGD(data, model, step_no, true, false);
         return stored_weights;
     }
+    double* GD(blackbox* model, int step_no, Data* data) {
+        double* stored_weights = grad_desc::GD(data, model, step_no, true, false);
+        return stored_weights;
+    }
     double* SVRG(blackbox* model, int step_no, Data* data) {
         std::vector<double>* stored_weights = grad_desc::SVRG(data, model, step_no, true, false);
         return &(*stored_weights)[0];
@@ -79,14 +83,15 @@ extern "C" {
 int main() {
     char* data_dir = (char*) "train(2d).dat";
     try {
-        ridge* Ridge= new ridge(0.01);
+        ridge* Ridge= new ridge(0.0001);
         Data* data = parse_data(data_dir);
-        grad_desc::SGD(data, Ridge, 1000, false, true);
+        double _wei[2] = {50, -50};
+        Ridge->set_init_weights(_wei);
+        grad_desc::SVRG(data, Ridge, 8, false, true);
         // :TIMING TEST
         // struct timeval tp;
         // gettimeofday(&tp, NULL);
         // long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        //grad_desc::SVRG(data, Ridge, 5, false, true);
         // gettimeofday(&tp, NULL);
         // printf("Execuate time: %ld \n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
         delete Ridge;

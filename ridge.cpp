@@ -13,6 +13,7 @@ double ridge::zero_oracle(Data* data, double* weights) const {
     for(size_t i = 0; i < MAX_DIM; i ++) {
         innr_w += weights[i] * weights[i];
     }
+    _F *= innr_w;
     for(size_t i = 0; i < data->size(); i ++) {
         double _inner_xw = 0;
         for(size_t j = 0; j < MAX_DIM; j ++) {
