@@ -77,9 +77,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t outter_
     std::random_device rd;
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<int> distribution(0, data->size() - 1);
-
     std::vector<double>* stored_weights = new std::vector<double>(0);
-
     double* inner_weights = new double[MAX_DIM];
     double* vr_sub_grad = new double[MAX_DIM];
     double* full_grad = new double[MAX_DIM];
@@ -142,14 +140,20 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t outter_
     return NULL;
 }
 
+std::vector<double>* Katyusha(Data* data, blackbox* model, size_t outter_iteration_no = 7
+    , bool is_store_weight = false, bool is_debug_mode = false) {
+    //TODO:
+    return NULL;
+}
+
 std::vector<double>* grad_desc::SAG(Data* data, blackbox* model, bool is_store_weight
     , bool is_debug_mode) {
-    //TODO
+    //TODO:
     return NULL;
 }
 
 std::vector<double>* grad_desc::SAGA(Data* data, blackbox* model, bool is_store_weight
     , bool is_debug_mode) {
-    //TODO
+    //TODO:
     return NULL;
 }

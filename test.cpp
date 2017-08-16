@@ -51,7 +51,7 @@ extern "C" {
     }
     ridge* Ridge_new() {
         ridge* Ridge = new ridge(0.01);
-        double weight[2] = {50, -30};
+        double weight[2] = {20, -10};
         Ridge->set_init_weights(weight);
         return Ridge;
     }
@@ -65,12 +65,12 @@ extern "C" {
     void Free(double* point) {
         delete[] point;
     }
-    double* SGD(blackbox* model, int step_no, Data* data) {
-        double* stored_weights = grad_desc::SGD(data, model, step_no, true, false);
-        return stored_weights;
-    }
     double* GD(blackbox* model, int step_no, Data* data) {
         double* stored_weights = grad_desc::GD(data, model, step_no, true, false);
+        return stored_weights;
+    }
+    double* SGD(blackbox* model, int step_no, Data* data) {
+        double* stored_weights = grad_desc::SGD(data, model, step_no, true, false);
         return stored_weights;
     }
     double* SVRG(blackbox* model, int step_no, Data* data) {
@@ -83,11 +83,11 @@ extern "C" {
 int main() {
     char* data_dir = (char*) "train(2d).dat";
     try {
-        ridge* Ridge= new ridge(0.0001);
+        svm* Ridge= new svm(0.0001);
         Data* data = parse_data(data_dir);
         double _wei[2] = {50, -50};
         Ridge->set_init_weights(_wei);
-        grad_desc::SVRG(data, Ridge, 8, false, true);
+        grad_desc::SVRG(data, Ridge, 50, false, true);
         // :TIMING TEST
         // struct timeval tp;
         // gettimeofday(&tp, NULL);
