@@ -1,4 +1,5 @@
 #include "grad_desc.hpp"
+#include "utils.hpp"
 #include <random>
 #include <math.h>
 
@@ -92,9 +93,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t outter_
         //FIXME:
         double inner_m = m0;//pow(2, i + 1) * m0;
         double* new_weights = new double[MAX_DIM];
-        for(size_t k = 0; k < MAX_DIM; k ++) {
-            inner_weights[k] = (model->get_model())[k];
-        }
+        copy_vec(inner_weights, model->get_model());
         //INNER_LOOP
         for(size_t j = 0; j < inner_m ; j ++) {
             int rand_samp = distribution(generator);
@@ -143,6 +142,23 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t outter_
 std::vector<double>* Katyusha(Data* data, blackbox* model, size_t outter_iteration_no = 7
     , bool is_store_weight = false, bool is_debug_mode = false) {
     //TODO:
+    int m = 2 * data->size();
+    double tau_2 = 0.5, tau_1 = 0.3;
+    double alpha = 1.0 / (tau_1 * 3 * 2);
+    double* y = new double[MAX_DIM];
+    double* z = new double[MAX_DIM];
+    double* inner_weights = new double[MAX_DIM];
+    double* full_grad = new double[MAX_DIM];
+    //init vectors
+    copy_vec(y, model->get_model());
+    copy_vec(z, model->get_model());
+    copy_vec(inner_weights, model->get_model());
+
+    for(size_t i = 0; i < outter_iteration_no; i ++) {
+        model->fir
+    }
+
+
     return NULL;
 }
 

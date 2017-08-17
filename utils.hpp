@@ -22,4 +22,9 @@ inline double comp_l2_norm(double* vec) {
     return sqrt(res);
 }
 
+inline void copy_vec(double* vec_to, double* vec_from) {
+    for(size_t i = 0; i < MAX_DIM; i ++)
+        vec_to[i] = vec_from[i];
+}
+
 #endif
