@@ -88,7 +88,7 @@ int main() {
         Data* data = parse_data(data_dir);
         double _wei[2] = {50, -50};
         logis->set_init_weights(_wei);
-        grad_desc::SVRG(data, logis, 20, false, true);
+        grad_desc::Katyusha(data, logis, 10, false, true);
         // :TIMING TEST
         // struct timeval tp;
         // gettimeofday(&tp, NULL);

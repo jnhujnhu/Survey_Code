@@ -48,8 +48,9 @@ void ridge::first_regularizer_oracle(double* _pR, double* weights) const {
 }
 
 void ridge::proximal_regularizer(double* _prox, double step_size) const {
-    //Not Applicable
-    _prox = NULL;
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        _prox[i] /= (1 + step_size * (*m_params));
+    }
 }
 
 int ridge::classify(double* sample) const{

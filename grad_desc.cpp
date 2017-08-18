@@ -84,8 +84,8 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t outter_
     double* full_grad = new double[MAX_DIM];
     double* inner_sub_grad = new double[MAX_DIM];
     double* outter_sub_grad = new double[MAX_DIM];
-    //FIXME:
-    double m0 = (double) data->size() / 4.0;
+    //FIXME: Epoch Size
+    double m0 = (double) data->size() * 2.0;
     size_t total_iterations = 0;
     //OUTTER_LOOP
     for(size_t i = 0 ; i < outter_iteration_no; i ++) {
@@ -119,7 +119,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t outter_
             }
             total_iterations ++;
         }
-        //FIXME:
+        //FIXME: Different Update Options.
         model->update_model(inner_weights);
         delete[] new_weights;
         if(is_debug_mode) {
@@ -139,12 +139,20 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t outter_
     return NULL;
 }
 
-std::vector<double>* Katyusha(Data* data, blackbox* model, size_t outter_iteration_no = 7
-    , bool is_store_weight = false, bool is_debug_mode = false) {
-    //TODO:
-    int m = 2 * data->size();
-    double tau_2 = 0.5, tau_1 = 0.3;
-    double alpha = 1.0 / (tau_1 * 3 * 2);
+std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t outter_iteration_no
+    , bool is_store_weight, bool is_debug_mode) {
+    //Random Generator
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, data->size() - 1);
+    size_t m = 2 * data->size();
+    size_t total_iterations = 0;
+    //FIXME: Adjust Factors.
+    double tau_2 = 0.5, tau_1 = 0.4, L = 1.0, sigma = 0.001;
+    double alpha = 1.0 / (tau_1 * 3.0 * L);
+    double step_size_y = 1.0 / (3.0 * L);
+    double compos_factor = 1 + alpha * sigma;
+    double compos_base = 1 - (compos_factor - pow(compos_factor, m)) / (alpha * sigma);
     double* y = new double[MAX_DIM];
     double* z = new double[MAX_DIM];
     double* inner_weights = new double[MAX_DIM];
@@ -153,12 +161,58 @@ std::vector<double>* Katyusha(Data* data, blackbox* model, size_t outter_iterati
     copy_vec(y, model->get_model());
     copy_vec(z, model->get_model());
     copy_vec(inner_weights, model->get_model());
-
+    //OUTTER LOOP
     for(size_t i = 0; i < outter_iteration_no; i ++) {
-        model->fir
+        model->first_component_oracle(data, full_grad);
+        double* katyusha_grad = new double[MAX_DIM];
+        double* inner_grad = new double[MAX_DIM];
+        double* outter_grad = new double[MAX_DIM];
+        double * new_weights = new double[MAX_DIM];
+        //INNER LOOP
+        for(size_t j = 0; j < m; j ++) {
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                inner_weights[k] = tau_1 * z[k] + tau_2 * (model->get_model())[k]
+                                 + (1 - tau_1 - tau_2) * y[k];
+            }
+            int rand_samp = distribution(generator);
+            model->first_component_oracle(data, inner_grad, rand_samp, inner_weights);
+            model->first_component_oracle(data, outter_grad, rand_samp);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                katyusha_grad[k] = full_grad[k] + inner_grad[k] - outter_grad[k];
+            }
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                z[k] -= alpha * katyusha_grad[k];
+            }
+            model->proximal_regularizer(z, alpha);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                y[k] = inner_weights[k] - step_size_y * katyusha_grad[k];
+            }
+            model->proximal_regularizer(y, step_size_y);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                new_weights[k] += pow(compos_factor, j) / compos_base * y[k];
+            }
+            total_iterations ++;
+            if(is_debug_mode) {
+                double log_F = log(model->zero_oracle(data, inner_weights));
+                printf("Katyusha: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
+            }
+        }
+        model->update_model(new_weights);
+        delete[] katyusha_grad;
+        delete[] inner_grad;
+        delete[] outter_grad;
+        delete[] new_weights;
+        if(is_debug_mode) {
+            double log_F = log(model->zero_oracle(data));
+            printf("Katyusha: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
+        }
     }
-
-
+    delete[] y;
+    delete[] z;
+    delete[] inner_weights;
+    delete[] full_grad;
+    if(is_debug_mode)
+        printf("Total Iteration No.: %zd\n", total_iterations);
     return NULL;
 }
 
