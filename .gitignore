@@ -4,9 +4,13 @@
 # Intellij
 /.idea/
 
-#dataset
+# dataset
 a9a
 *.dat
+
+# template
+*.cpp.t
+*.hpp.t
 
 # Compiled Object files
 *.slo

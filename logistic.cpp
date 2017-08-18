@@ -3,7 +3,8 @@
 #include <math.h>
 
 extern size_t MAX_DIM;
-logistic::logistic(double param) {
+logistic::logistic(double param, int _regularizer) {
+    m_regularizer = _regularizer;
     m_params = new double;
     *m_params = param;
     m_weights = new double[MAX_DIM];
@@ -23,12 +24,6 @@ double logistic::zero_component_oracle(Data* data, double* weights) const {
     return _F / (double) data->size();
 }
 
-double logistic::zero_regularizer_oracle(double* weights) const {
-    if(weights == NULL) weights = m_weights;
-    double l2_norm = comp_l2_norm(weights);
-    return *m_params * 0.5 * l2_norm * l2_norm;
-}
-
 void logistic::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
     if(weights == NULL) weights = m_weights;
     double exp_yxw = 0.0;
@@ -39,19 +34,6 @@ void logistic::first_component_oracle(Data* data, double* _pF, int given_index, 
     exp_yxw = exp(exp_yxw * -(*data)[given_index]);
     for(size_t i = 0; i < MAX_DIM; i ++) {
         _pF[i] = (*data)(given_index, i) * -(*data)[given_index] * exp_yxw / (1 + exp_yxw);
-    }
-}
-
-void logistic::first_regularizer_oracle(double* _pR, double* weights) const {
-    if(weights == NULL) weights = m_weights;
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        _pR[i] = weights[i] * (*m_params);
-    }
-}
-
-void logistic::proximal_regularizer(double* _prox, double step_size) const {
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        _prox[i] /= (1 + step_size * (*m_params));
     }
 }
 

@@ -6,8 +6,9 @@
 #include "data.hpp"
 #include "grad_desc.hpp"
 #include "svm.hpp"
+#include "regularizer.hpp"
 #include "logistic.hpp"
-#include "ridge.hpp"
+#include "least_square.hpp"
 #include <sys/time.h>
 using namespace std;
 
@@ -50,11 +51,11 @@ extern "C" {
     svm* SVM_new() {
         return new svm(0.0001);
     }
-    ridge* Ridge_new() {
-        ridge* Ridge = new ridge(0.01);
+    least_square* RLS_new() {
+        least_square* rls = new least_square(0.01);
         double weight[2] = {20, -10};
-        Ridge->set_init_weights(weight);
-        return Ridge;
+        rls->set_init_weights(weight);
+        return rls;
     }
     void Model_free(blackbox* model) {
         delete model;
@@ -93,6 +94,7 @@ int main() {
         // struct timeval tp;
         // gettimeofday(&tp, NULL);
         // long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        // grad_desc::SVRG(data, logis, 10, false, true);
         // gettimeofday(&tp, NULL);
         // printf("Execuate time: %ld \n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
         delete logis;

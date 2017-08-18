@@ -1,4 +1,5 @@
 #include "blackbox.hpp"
+#include "regularizer.hpp"
 
 blackbox::~blackbox() {
     delete[] m_weights;
@@ -61,6 +62,20 @@ void blackbox::first_component_oracle(Data* data, double* _pF, bool is_stochasti
         for(size_t j = 0; j < MAX_DIM; j ++)
             _pF[j] /= data->size();
     }
+}
+
+double blackbox::zero_regularizer_oracle(double* weights) const {
+    if(weights == NULL) weights = m_weights;
+    return regularizer::zero_oracle(m_regularizer, *m_params, weights);
+}
+
+void blackbox::first_regularizer_oracle(double* _pR, double* weights) const {
+    if(weights == NULL) weights = m_weights;
+    regularizer::first_oracle(m_regularizer, _pR, *m_params, weights);
+}
+
+void blackbox::proximal_regularizer(double* _prox, double step_size) const {
+    regularizer::proximal_operator(m_regularizer, _prox, *m_params, step_size);
 }
 
 void blackbox::set_init_weights(double* init_weights) {

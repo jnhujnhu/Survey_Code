@@ -4,7 +4,8 @@
 #include <math.h>
 
 extern size_t MAX_DIM;
-svm::svm(double param) {
+svm::svm(double param, int regular) {
+    m_regularizer = regular;
     m_params = new double;
     *m_params = param;
     m_weights = new double[MAX_DIM];
@@ -26,12 +27,6 @@ double svm::zero_component_oracle(Data* data, double* weights) const {
     return _F;
 }
 
-double svm::zero_regularizer_oracle(double* weights) const {
-    if(weights == NULL) weights = m_weights;
-    double l2_norm = comp_l2_norm(weights);
-    return *m_params * 0.5 * l2_norm * l2_norm;
-}
-
 void svm::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
     //Sub Gradient For SVM
     if(weights == NULL) weights = m_weights;
@@ -44,19 +39,6 @@ void svm::first_component_oracle(Data* data, double* _pF, int given_index, doubl
         for(size_t i = 0; i < MAX_DIM; i ++) {
             _pF[i] -= (*data)[given_index] * (*data)(given_index, i);
         }
-    }
-}
-
-void svm::first_regularizer_oracle(double* _pR, double* weights) const {
-    if(weights == NULL) weights = m_weights;
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        _pR[i] = weights[i] * (*m_params);
-    }
-}
-
-void svm::proximal_regularizer(double* _prox, double step_size) const {
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        _prox[i] /= (1 + step_size * (*m_params)); 
     }
 }
 

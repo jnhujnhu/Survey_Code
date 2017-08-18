@@ -61,7 +61,7 @@ def obj_func(x_grid, y_grid):
 
 # Plot SGD
 step_no = 1600
-step_sgd = cast(GD(ridge, c_int(step_no), data), POINTER(c_double))
+step_sgd = cast(SGD(ridge, c_int(step_no), data), POINTER(c_double))
 for i in range(2, step_no * 2, 2):
     ax = plt.axes()
     ax.annotate('', xy=(step_sgd[i], step_sgd[i+1]), xytext=(step_sgd[i-2], step_sgd[i-1]),
@@ -71,14 +71,14 @@ Model_free(ridge)
 ridge = SVM_new()
 
 # Plot SVRG
-# step_svrg = cast(SVRG(ridge, c_int(8), data), POINTER(c_double))
-# for i in range(2, 3000, 2):
-#     ax = plt.axes()
-#     ax.annotate('', xy=(step_svrg[i], step_svrg[i+1]), xytext=(step_svrg[i-2], step_svrg[i-1]),
-#             arrowprops={'arrowstyle': '->', 'color':'red', 'lw':1})
+step_svrg = cast(SVRG(ridge, c_int(8), data), POINTER(c_double))
+for i in range(2, 3000, 2):
+    ax = plt.axes()
+    ax.annotate('', xy=(step_svrg[i], step_svrg[i+1]), xytext=(step_svrg[i-2], step_svrg[i-1]),
+            arrowprops={'arrowstyle': '->', 'color':'red', 'lw':1})
 
-x_grid = np.linspace(int(step_sgd[step_no * 2 - 2] - 30), int(step_sgd[step_no * 2 - 2] + 30), 251)
-y_grid = np.linspace(int(step_sgd[step_no * 2 - 1] - 30), int(step_sgd[step_no * 2 - 1] + 30), 251)
+x_grid = np.linspace(int(step_svrg[step_no * 2 - 2] - 30), int(step_svrg[step_no * 2 - 2] + 30), 251)
+y_grid = np.linspace(int(step_svrg[step_no * 2 - 1] - 30), int(step_svrg[step_no * 2 - 1] + 30), 251)
 f_grid = obj_func(x_grid, y_grid)
 # np.reshape(f_grid, (251, 251))
 X, Y = np.meshgrid(x_grid, y_grid)
@@ -89,5 +89,5 @@ plt.show()
 # Free space
 Model_free(ridge)
 Data_free(data)
-Free(step_sgd)
+# Free(step_sgd)
 # Free(step_svrg)
