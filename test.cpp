@@ -85,7 +85,7 @@ extern "C" {
 int main() {
     char* data_dir = (char*) "train(2d).dat";
     try {
-        logistic* logis= new logistic(0.0001);
+        logistic* logis= new logistic(0.0001, regularizer::L1);
         Data* data = parse_data(data_dir);
         double _wei[2] = {50, -50};
         logis->set_init_weights(_wei);

@@ -85,9 +85,3 @@ X, Y = np.meshgrid(x_grid, y_grid)
 contours = plt.contour(X, Y, f_grid, 40)
 plt.clabel(contours)
 plt.show()
-
-# Free space
-Model_free(ridge)
-Data_free(data)
-# Free(step_sgd)
-# Free(step_svrg)
