@@ -1,11 +1,13 @@
 # Prerequisites
 *.d
 
+/S2GD/
+
 # Intellij
 /.idea/
 
 # dataset
-a9a
+a*a
 *.dat
 
 # template

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
+#include <string>
 
 extern size_t MAX_DIM;
 inline double comp_l2_norm(std::vector<double>* vec) {
@@ -36,4 +37,17 @@ inline void copy_vec(double* vec_to, double* vec_from) {
         vec_to[i] = vec_from[i];
 }
 
+inline std::vector<std::string> split(const std::string &s, const std::string &separator) {
+    std::vector<std::string> result;
+    std::string temp_s = s;
+    size_t found = 0;
+    while(1) {
+        found = temp_s.find(separator);
+        result.push_back(temp_s.substr(0, found));
+        if(found >= temp_s.size() - separator.size())
+            break;
+        temp_s = temp_s.substr(found + separator.size());
+    }
+    return result;
+}
 #endif

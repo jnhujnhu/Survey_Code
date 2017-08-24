@@ -7,7 +7,7 @@ lib = cdll.LoadLibrary('./svmlib.so')
 dim = lib.get_dim
 dim.restype = c_size_t
 
-Ridge_new = lib.Ridge_new
+Ridge_new = lib.RLS_new
 Ridge_new.restype = c_void_p
 
 SVM_new = lib.SVM_new
@@ -34,6 +34,10 @@ SGD = lib.SGD
 SGD.argtypes = [c_void_p, c_int, c_void_p]
 SGD.restype = c_void_p
 
+KGD = lib.KGD
+KGD.argtypes = [c_void_p, c_int, c_void_p]
+KGD.restype = c_void_p
+
 SVRG = lib.SVRG
 SVRG.argtypes = [c_void_p, c_int, c_void_p]
 SVRG.restype = c_void_p
@@ -45,7 +49,7 @@ Free.argtypes = [c_void_p]
 if dim() is not 2:
     print("Dimension is not 2.")
     exit(0)
-ridge = SVM_new()
+ridge = Ridge_new()
 data = get()
 
 def obj_func(x_grid, y_grid):
@@ -61,18 +65,22 @@ def obj_func(x_grid, y_grid):
 
 # Plot SGD
 step_no = 1600
-step_sgd = cast(SGD(ridge, c_int(step_no), data), POINTER(c_double))
-for i in range(2, step_no * 2, 2):
-    ax = plt.axes()
-    ax.annotate('', xy=(step_sgd[i], step_sgd[i+1]), xytext=(step_sgd[i-2], step_sgd[i-1]),
-            arrowprops={'arrowstyle': '->', 'color':'blue', 'lw':1})
-
-Model_free(ridge)
-ridge = SVM_new()
+# step_sgd = cast(SGD(ridge, c_int(step_no), data), POINTER(c_double))
+# step_sgd[-2] = 20;
+# step_sgd[-1] = -10;
+# for i in range(0, step_no * 2, 2):
+#     ax = plt.axes()
+#     ax.annotate('', xy=(step_sgd[i], step_sgd[i+1]), xytext=(step_sgd[i-2], step_sgd[i-1]),
+#             arrowprops={'arrowstyle': '->', 'color':'blue', 'lw':1})
+#
+# Model_free(ridge)
+# ridge = Ridge_new()
 
 # Plot SVRG
-step_svrg = cast(SVRG(ridge, c_int(8), data), POINTER(c_double))
-for i in range(2, 3000, 2):
+step_svrg = cast(KGD(ridge, c_int(10), data), POINTER(c_double))
+step_svrg[-2] = 20;
+step_svrg[-1] = -10;
+for i in range(0, 5000, 2):
     ax = plt.axes()
     ax.annotate('', xy=(step_svrg[i], step_svrg[i+1]), xytext=(step_svrg[i-2], step_svrg[i-1]),
             arrowprops={'arrowstyle': '->', 'color':'red', 'lw':1})
@@ -86,8 +94,8 @@ contours = plt.contour(X, Y, f_grid, 40)
 plt.clabel(contours)
 plt.show()
 
-# Free space
-Model_free(ridge)
-Data_free(data)
+# # Free space
+# Model_free(ridge)
+# Data_free(data)
 # Free(step_sgd)
 # Free(step_svrg)

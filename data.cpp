@@ -19,12 +19,12 @@ void Data::Increase(int M) {
     mLabel.resize(mN);
 }
 
-double& Data::operator()(size_t n, size_t d) {
+uint8_t& Data::operator()(size_t n, size_t d) {
     boundChecking(n, d);
     return mData[n * MAX_DIM + d];
 }
 
-double Data::operator()(size_t n, size_t d) const {
+uint8_t Data::operator()(size_t n, size_t d) const {
     boundChecking(n, d);
     return mData[n * MAX_DIM + d];
 }

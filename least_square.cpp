@@ -15,9 +15,9 @@ double least_square::zero_component_oracle(Data* data, double* weights) const {
         for(size_t j = 0; j < MAX_DIM; j ++) {
             _inner_xw += (*data)(i, j) * weights[j];
         }
-        _F += (_inner_xw - (*data)[i]) * (_inner_xw - (*data)[i])
-            / (double) data->size();
+        _F += (_inner_xw - (*data)[i]) * (_inner_xw - (*data)[i]);
     }
+    _F /= (double) data->size();
     return _F;
 }
 
