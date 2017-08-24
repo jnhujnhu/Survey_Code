@@ -1,6 +1,6 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
-#include <math.h>
+#include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
@@ -27,7 +27,7 @@ inline double comp_l2_norm(double* vec) {
 inline double comp_l1_norm(double* vec) {
     double res = 0.0;
     for(size_t i = 0; i < MAX_DIM; i ++){
-        res += abs(vec[i]);
+        res += std::abs(vec[i]);
     }
     return res;
 }
@@ -37,6 +37,7 @@ inline void copy_vec(double* vec_to, double* vec_from) {
         vec_to[i] = vec_from[i];
 }
 
+<<<<<<< HEAD
 inline std::vector<std::string> split(const std::string &s, const std::string &separator) {
     std::vector<std::string> result;
     std::string temp_s = s;
@@ -50,4 +51,10 @@ inline std::vector<std::string> split(const std::string &s, const std::string &s
     }
     return result;
 }
+=======
+inline constexpr unsigned int _hash(const char* str, int h = 0) {
+    return !str[h] ? 5381 : (_hash(str, h+1) * 33) ^ str[h];
+}
+
+>>>>>>> 27a95fa117b1486ffda4fc7007886958482c0ff0
 #endif

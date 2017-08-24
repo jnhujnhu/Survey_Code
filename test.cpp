@@ -145,7 +145,11 @@ double evaluate_lipschitz_constant(Data* data, blackbox* model) {
 int main() {
     char* data_dir = (char*) "a9a";
     try {
+<<<<<<< HEAD
         logistic* rls = new logistic(0.0001);
+=======
+        logistic* logis= new logistic(0.0001, regularizer::L1);
+>>>>>>> 27a95fa117b1486ffda4fc7007886958482c0ff0
         Data* data = parse_data(data_dir);
         // double weight[2] = {200, -100};
         // rls->set_init_weights(weight);
