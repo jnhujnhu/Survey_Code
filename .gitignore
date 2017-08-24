@@ -9,6 +9,11 @@
 # dataset
 a*a
 *.dat
+*.mat
+
+# test
+small_test.cpp
+small_test
 
 # template
 *.cpp.t
@@ -38,6 +43,7 @@ a*a
 *.la
 *.a
 *.lib
+*.mexa64
 
 # Executables
 test

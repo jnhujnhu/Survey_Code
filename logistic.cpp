@@ -15,8 +15,9 @@ double logistic::zero_component_oracle(Data* data, double* weights) const {
     double _F = 0.0;
     for(size_t i = 0; i < data->size(); i ++) {
         double innr_yxw = 0.0;
-        for(size_t j = 0; j < MAX_DIM; j ++) {
-            innr_yxw += (*data)(i, j) * weights[j];
+        Data::iterator iter = (*data)(i);
+        while(iter.hasNext()) {
+            innr_yxw += weights[iter.getIndex()] * iter.next();
         }
         innr_yxw *= -(*data)[i];
         _F += log(1.0 + exp(innr_yxw));
@@ -27,13 +28,17 @@ double logistic::zero_component_oracle(Data* data, double* weights) const {
 void logistic::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
     if(weights == NULL) weights = m_weights;
     double exp_yxw = 0.0;
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        exp_yxw += (*data)(given_index, i) * weights[i];
-        _pF[i] = 0.0;
+    Data::iterator iter = (*data)(given_index);
+    while(iter.hasNext()){
+        exp_yxw += weights[iter.getIndex()] * iter.next();
     }
     exp_yxw = exp(exp_yxw * -(*data)[given_index]);
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        _pF[i] = (*data)(given_index, i) * -(*data)[given_index] * exp_yxw / (1 + exp_yxw);
+
+    iter.reset(given_index);
+    while(iter.hasNext()) {
+        // Prevent malposition for index.
+        size_t index = iter.getIndex();
+        _pF[index] = iter.next() * -(*data)[given_index] * exp_yxw / (1 + exp_yxw);
     }
 }
 

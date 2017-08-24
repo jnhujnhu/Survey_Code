@@ -16,8 +16,9 @@ double svm::zero_component_oracle(Data* data, double* weights) const {
     double _F = 0.0;
     for(size_t i = 0; i < data->size(); i ++) {
         double innr_xw = 0;
-        for(size_t j = 0; j < MAX_DIM; j ++) {
-            innr_xw += (*data)(i, j) * weights[j];
+        Data::iterator iter = (*data)(i);
+        while(iter.hasNext()) {
+            innr_xw += weights[iter.getIndex()] * iter.next();
         }
         double slack = 1 - (*data)[i] * innr_xw;
         if(slack > 0) {
@@ -31,13 +32,16 @@ void svm::first_component_oracle(Data* data, double* _pF, int given_index, doubl
     //Sub Gradient For SVM
     if(weights == NULL) weights = m_weights;
     double innr_xw = 0;
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        _pF[i] = 0.0;
-        innr_xw += (*data)(given_index, i) * weights[i];
+    Data::iterator iter = (*data)(given_index);
+    while(iter.hasNext()) {
+        innr_xw += weights[iter.getIndex()] * iter.next();
     }
     if((*data)[given_index] * innr_xw < 1) {
-        for(size_t i = 0; i < MAX_DIM; i ++) {
-            _pF[i] -= (*data)[given_index] * (*data)(given_index, i);
+        iter.reset(given_index);
+        while(iter.hasNext()) {
+            // Prevent malposition for index.
+            size_t index = iter.getIndex();
+            _pF[index] = -(*data)[given_index] * iter.next();
         }
     }
 }

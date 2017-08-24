@@ -77,10 +77,10 @@ step_no = 1600
 # ridge = Ridge_new()
 
 # Plot SVRG
-step_svrg = cast(KGD(ridge, c_int(10), data), POINTER(c_double))
+step_svrg = cast(SVRG(ridge, c_int(10), data), POINTER(c_double))
 step_svrg[-2] = 20;
 step_svrg[-1] = -10;
-for i in range(0, 5000, 2):
+for i in range(0, 3000, 2):
     ax = plt.axes()
     ax.annotate('', xy=(step_svrg[i], step_svrg[i+1]), xytext=(step_svrg[i-2], step_svrg[i-1]),
             arrowprops={'arrowstyle': '->', 'color':'red', 'lw':1})
@@ -93,12 +93,9 @@ X, Y = np.meshgrid(x_grid, y_grid)
 contours = plt.contour(X, Y, f_grid, 40)
 plt.clabel(contours)
 plt.show()
-<<<<<<< HEAD
 
-# # Free space
+# Free space
 # Model_free(ridge)
 # Data_free(data)
 # Free(step_sgd)
 # Free(step_svrg)
-=======
->>>>>>> 27a95fa117b1486ffda4fc7007886958482c0ff0

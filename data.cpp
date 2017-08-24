@@ -11,7 +11,17 @@ void Data::boundChecking(size_t n, size_t d) const {
     }
 }
 
-Data::Data(int N): mN(N), mData(N * MAX_DIM), mLabel(N) {}
+Data::Data(size_t N): mN(N), mData(N * MAX_DIM), mLabel(N), iter(*this), is_sparse(false) {}
+
+// Matlab Mat Support
+Data::Data(size_t N, double* Xt, double* Y, bool isSparse, size_t* Jc, size_t* Ir)
+    :iter(*this), is_sparse(isSparse), jc(Jc), ir(Ir) {
+    mN = N;
+    std::vector<double> data(Xt, Xt + jc[N]);
+    mData = data;
+    std::vector<double> label(Y, Y + N);
+    mLabel = label;
+}
 
 void Data::Increase(int M) {
     mN += M;
@@ -19,26 +29,79 @@ void Data::Increase(int M) {
     mLabel.resize(mN);
 }
 
-uint8_t& Data::operator()(size_t n, size_t d) {
-    boundChecking(n, d);
-    return mData[n * MAX_DIM + d];
+Data::iterator& Data::operator()(size_t n) {
+    iter.reset(n);
+    return iter;
 }
 
-uint8_t Data::operator()(size_t n, size_t d) const {
-    boundChecking(n, d);
-    return mData[n * MAX_DIM + d];
+double& Data::operator()(size_t n, size_t d) {
+    if(!is_sparse) {
+        boundChecking(n, 0);
+        return mData[n * MAX_DIM + d];
+    }
+    else {
+        std::string err = "Operator(n,d) does not support sparse data.";
+        throw err;
+    }
 }
 
-int& Data::operator[](size_t n) {
+double Data::operator()(size_t n, size_t d) const {
+    if(!is_sparse) {
+        boundChecking(n, 0);
+        return mData[n * MAX_DIM + d];
+    }
+    else {
+        std::string err = "Operator(n,d) does not support sparse data.";
+        throw err;
+    }
+}
+
+double& Data::operator[](size_t n) {
     boundChecking(n, 0);
     return mLabel[n];
 }
 
-int Data::operator[](size_t n) const {
+double Data::operator[](size_t n) const {
     boundChecking(n, 0);
     return mLabel[n];
 }
 
 size_t Data::size() const {
     return mN;
+}
+
+void Data::iterator::reset(size_t n) {
+    if(data.is_sparse)
+        m_index = data.jc[n];
+    else
+        m_index = n * MAX_DIM;
+    m_samp_index = n;
+}
+
+bool Data::iterator::hasNext() const {
+    if(data.is_sparse && m_index >= data.jc[m_samp_index + 1])
+        return false;
+    else if(!data.is_sparse && m_index - m_samp_index * MAX_DIM >= MAX_DIM)
+        return false;
+    else
+        return true;
+}
+
+double Data::iterator::next() {
+    if(hasNext()) {
+        return data.mData[m_index ++];
+    }
+    else {
+        std::string err = "Data Bound Overflow.";
+        throw err;
+    }
+}
+
+size_t Data::iterator::getIndex() const {
+    if(hasNext()) {
+        if(data.is_sparse)
+            return data.ir[m_index];
+        else
+            return m_index - m_samp_index * MAX_DIM;
+    }
 }

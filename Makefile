@@ -3,7 +3,7 @@ PARAMS = -c -fPIC -std=c++14
 SO_PARAMS = -std=c++14 -shared -o
 
 run:
-	g++ -std=c++14 svm.cpp logistic.cpp least_square.cpp blackbox.cpp regularizer.o test.cpp data.cpp grad_desc.cpp -o test
+	g++ -std=c++14 svm.cpp logistic.cpp least_square.cpp blackbox.cpp regularizer.cpp test.cpp data.cpp grad_desc.cpp -o test
 lib: svmlib.so clean
 svmlib.so: $(OBJECTS)
 	g++ $(OBJECTS) $(SO_PARAMS) svmlib.so

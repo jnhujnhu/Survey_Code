@@ -1,11 +1,2 @@
 
-mex svm.cpp -largeArrayDims
-mex logistic.cpp -largeArrayDims
-mex least_square.cpp -largeArrayDims
-mex blackbox.cpp -largeArrayDims
-mex regularizer.cpp -largeArrayDims
-mex Interface.cpp -largeArrayDims
-mex data.cpp -largeArrayDims
-mex grad_desc.cpp -largeArrayDims
-mex svm.cpp -largeArrayDims
-mex svm.cpp -largeArrayDims
+mex GCC='/usr/bin/gcc-4.9' Interface.cpp data.cpp grad_desc.cpp svm.cpp logistic.cpp least_square.cpp blackbox.cpp regularizer.cpp -largeArrayDims

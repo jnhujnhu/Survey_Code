@@ -7,19 +7,38 @@
 
 class Data {
 public:
-    Data(int N);
+    Data(size_t N);
+    Data(size_t N, double* Xt, double* Y, bool isSparse = false, size_t* Jc = NULL,
+        size_t* Ir = NULL);
     void Increase(int M);
+    class iterator {
+    public:
+        iterator(Data& d):data(d) {}
+        bool hasNext() const;
+        size_t getIndex() const;
+        double next();
+        void reset(size_t n);
+    private:
+        Data& data;
+        size_t m_index;
+        size_t m_samp_index;
+    };
     //data
-    uint8_t& operator()(size_t n, size_t d);
-    uint8_t operator()(size_t n, size_t d) const;
+    iterator& operator()(size_t n); //Sparse Support
+    double& operator()(size_t n, size_t d);
+    double operator()(size_t n, size_t d) const;
     //label
-    int& operator[](size_t n);
-    int operator[](size_t n) const;
+    double& operator[](size_t n);
+    double operator[](size_t n) const;
     size_t size() const;
 private:
     size_t mN;
-    std::vector<uint8_t> mData;
-    std::vector<int> mLabel;
+    std::vector<double> mData;
+    std::vector<double> mLabel;
+    iterator iter;
+    bool is_sparse;
+    // Matlab Sparse Index
+    size_t *jc, *ir;
     void boundChecking(size_t n, size_t d) const;
 };
 
