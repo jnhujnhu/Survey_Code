@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #include "regularizer.hpp"
 #include "utils.hpp"
 
@@ -23,6 +24,7 @@ double regularizer::zero_oracle(int _regular, double lambda, double* weight) {
 }
 void regularizer::first_oracle(int _regular, double* _pR, double lambda, double* weight) {
     assert (weight != NULL);
+    memset(_pR, 0, MAX_DIM * sizeof(double));
     switch(_regular) {
         case regularizer::L1: {
             //Not Available
@@ -53,7 +55,8 @@ void regularizer::proximal_operator(int _regular, double* _prox, double lambda, 
         }
         case regularizer::L2: {
             for(size_t i = 0; i < MAX_DIM; i ++) {
-                _prox[i] /= (1 + step_size * lambda);
+                if(_prox[i] != 0)
+                    _prox[i] /= (1 + step_size * lambda);
             }
             break;
         }

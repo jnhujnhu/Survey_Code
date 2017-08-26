@@ -8,6 +8,8 @@
 #include "least_square.hpp"
 #include "utils.hpp"
 
+#include <sys/time.h>
+
 size_t MAX_DIM;
 
 const size_t MAX_PARAM_STR_LEN = 15;
@@ -23,8 +25,6 @@ Data* parse_data(const mxArray* prhs[], bool is_sparse) {
     if(is_sparse) {
         jc = mxGetJc(prhs[0]);
         ir = mxGetIr(prhs[0]);
-        // for(size_t i = 0 ; i < 183; i ++)
-        //     printf("%d: %zd\n",i , ir[i]);
         data = new Data(N, X, Y, is_sparse, jc, ir);
     }
     else
@@ -34,14 +34,22 @@ Data* parse_data(const mxArray* prhs[], bool is_sparse) {
 
 void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     try {
+        // :TIMING TEST
+        struct timeval tp;
+        gettimeofday(&tp, NULL);
+        long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         Data* data = parse_data(prhs, (bool) prhs[10]);
+        gettimeofday(&tp, NULL);
+        printf("Data Parse time: %ld ms\n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
 
         double *init_weight = mxGetPr(prhs[5]);
         double lambda = mxGetScalar(prhs[6]);
+        double L = mxGetScalar(prhs[7]);
+        double step_size = mxGetScalar(prhs[8]);
         size_t iteration_no = (size_t) mxGetScalar(prhs[9]);
-        bool is_store_weight = false;
+        bool is_store_result = false;
         if(nlhs == 1)
-            is_store_weight = true;
+            is_store_result = true;
 
         int regularizer;
         char* _regul = new char[MAX_PARAM_STR_LEN];
@@ -76,40 +84,54 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                 break;
         }
 
+        // TIMING TEST
+        gettimeofday(&tp, NULL);
+        ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+
         char* _algo = new char[MAX_PARAM_STR_LEN];
         mxGetString(prhs[2], _algo, MAX_PARAM_STR_LEN);
-        double* stored_weights;
+        double* stored_F;
+        std::vector<double>* vec_stored_F;
+        size_t len_stored_F;
         //TODO: Add step_size and L as params
         switch(_hash(_algo)) {
             case _hash("GD"):
-                stored_weights = grad_desc::GD(data, model, iteration_no,
-                    is_store_weight, false);
+                stored_F = grad_desc::GD(data, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+                len_stored_F = iteration_no;
                 break;
             case _hash("SGD"):
-                stored_weights = grad_desc::SGD(data, model, iteration_no,
-                    is_store_weight, false);
+                stored_F = grad_desc::SGD(data, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+                len_stored_F = (size_t) floor((double) iteration_no / data->size());
                 break;
             case _hash("SVRG"):
-                stored_weights = &(*grad_desc::SVRG(data, model, iteration_no,
-                    is_store_weight, false))[0];
+                vec_stored_F = grad_desc::SVRG(data, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+                stored_F = &(*vec_stored_F)[0];
+                len_stored_F = vec_stored_F->size();
                 break;
             case _hash("Katyusha"):
-                //FIXME: Not support yet.
-                stored_weights = &(*grad_desc::Katyusha(data, model, iteration_no,
-                    is_store_weight, false))[0];
+                vec_stored_F = grad_desc::Katyusha(data, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+                stored_F = &(*vec_stored_F)[0];
+                len_stored_F = vec_stored_F->size();
                 break;
             default:
                 mexErrMsgTxt("Unrecognized algorithm.");
                 break;
         }
-        //FIXME: Compute iter for 2-level algos.
-        if(is_store_weight) {
-            plhs[0] = mxCreateDoubleMatrix(iteration_no, 1, mxREAL);
-        	double* res_stored_weights = mxGetPr(plhs[0]);
-            for(size_t i = 0; i < iteration_no; i ++)
-                res_stored_weights[i] = stored_weights[i];
+        //TIMING TEST
+        gettimeofday(&tp, NULL);
+        printf("Iteration time: %ld ms\n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
+
+        if(is_store_result) {
+            plhs[0] = mxCreateDoubleMatrix(len_stored_F, 1, mxREAL);
+        	double* res_stored_F = mxGetPr(plhs[0]);
+            for(size_t i = 0; i < len_stored_F; i ++)
+                res_stored_F[i] = stored_F[i];
         }
-        delete[] stored_weights;
+        delete[] stored_F;
         delete model;
         delete data;
     } catch(std::string c) {

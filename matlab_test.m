@@ -2,7 +2,7 @@
 clear;
 load('rcv1_train.binary.mat');
 
-%% Why Transpose? Why Add 1-vector?
+%% Transpose? Add 1-vector?
 X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
 X = X';
@@ -17,17 +17,19 @@ L = (0.25 * max(sum(X.^2, 1)) + lambda);
 step_size = 1.0 / (5.0 * L);
 %% For two-level algorithm, stands for outter loop count,
 %% for SGD, stands for total loop count.
-loop = int64(1000);
+loop = int64(30 * N);
 is_store_iterates = true;
 is_sparse = issparse(X);
 
+disp('Algorithm: ' + algorithm);
+disp('Model: ' + regularizer + '-' + model);
+
 if (is_store_iterates)
-    stored_weights = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse);
+    stored_F = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse);
+    disp(stored_F)
 else
     Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse);
 end
-
-disp(stored_weights)
 
 %% Plot
 if (is_store_iterates)

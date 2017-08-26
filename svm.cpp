@@ -2,6 +2,7 @@
 #include "data.hpp"
 #include "utils.hpp"
 #include <math.h>
+#include <string.h>
 
 extern size_t MAX_DIM;
 svm::svm(double param, int regular) {
@@ -31,6 +32,7 @@ double svm::zero_component_oracle(Data* data, double* weights) const {
 void svm::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
     //Sub Gradient For SVM
     if(weights == NULL) weights = m_weights;
+    memset(_pF, 0, MAX_DIM * sizeof(double));
     double innr_xw = 0;
     Data::iterator iter = (*data)(given_index);
     while(iter.hasNext()) {

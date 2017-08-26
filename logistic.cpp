@@ -1,6 +1,7 @@
 #include "logistic.hpp"
 #include "utils.hpp"
 #include <math.h>
+#include <string.h>
 
 extern size_t MAX_DIM;
 logistic::logistic(double param, int _regularizer) {
@@ -27,6 +28,7 @@ double logistic::zero_component_oracle(Data* data, double* weights) const {
 
 void logistic::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
     if(weights == NULL) weights = m_weights;
+    memset(_pF, 0, MAX_DIM * sizeof(double));
     double exp_yxw = 0.0;
     Data::iterator iter = (*data)(given_index);
     while(iter.hasNext()){

@@ -15,7 +15,7 @@
 #include <random>
 using namespace std;
 
-size_t MAX_DIM = 123;
+size_t MAX_DIM;
 
 Data* parse_data(char* data_dir) {
     Data* data = new Data(0);
@@ -101,7 +101,8 @@ extern "C" {
     //     return &(*stored_weights)[0];
     // }
     double* SVRG(blackbox* model, int step_no, Data* data) {
-        std::vector<double>* stored_weights = grad_desc::SVRG(data, model, step_no, true, false);
+        size_t iter = step_no;
+        std::vector<double>* stored_weights = grad_desc::SVRG(data, model, iter, true, false);
         return &(*stored_weights)[0];
     }
 }
@@ -143,24 +144,25 @@ double evaluate_lipschitz_constant(Data* data, blackbox* model) {
 
 //Test Main
 int main() {
-    char* data_dir = (char*) "a9a";
+    char* data_dir = (char*) "train(2d).dat";
+    MAX_DIM = 2;
     try {
-        logistic* rls = new logistic(0.0001);
-        Data* data = parse_data(data_dir);
+        svm* rls = new svm(0.0001);
+        Data* data = parse_data_2(data_dir);
         // double weight[2] = {200, -100};
         // rls->set_init_weights(weight);
-        //cout << evaluate_lipschitz_constant(data, logis) << endl;
-        grad_desc::KGD(data, rls, 500000, false, false);
-        //grad_desc::SGD(data, rls, 1000, false, false);
-        // for(size_t j = 0; j < MAX_DIM; j ++) {
-        //     printf("%lf ", logis->get_model()[j]);
-        // }
-        // cout << endl;
+        //cout << evaluate_lipschitz_constant(data, rls) << endl;
+        size_t iteration_no = 300;
+        double* F = &(*grad_desc::Katyusha(data, rls, iteration_no, 1, 1, false, false, true))[0];
+
+        for(size_t i = 0; i < 40; i ++)
+            printf("%lf \n", F[i]);
+
         // :TIMING TEST
         // struct timeval tp;
         // gettimeofday(&tp, NULL);
         // long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        // grad_desc::SVRG(data, logis, 10, false, true);
+        // grad_desc::SVRG(data, rls, 10, false, true);
         // gettimeofday(&tp, NULL);
         // printf("Execuate time: %ld \n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
         delete rls;

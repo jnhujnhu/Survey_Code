@@ -1,4 +1,6 @@
 #include "least_square.hpp"
+#include <string.h>
+
 extern size_t MAX_DIM;
 least_square::least_square(double param, int regular) {
     m_regularizer = regular;
@@ -24,6 +26,7 @@ double least_square::zero_component_oracle(Data* data, double* weights) const {
 
 void least_square::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
     if(weights == NULL) weights = m_weights;
+    memset(_pF, 0, MAX_DIM * sizeof(double));
     double _loss = 0, _inner_xw = 0;
     Data::iterator iter = (*data)(given_index);
     while(iter.hasNext()) {

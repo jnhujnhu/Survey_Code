@@ -12,6 +12,7 @@ a*a
 *.mat
 
 # test
+*.c
 small_test.cpp
 small_test
 
