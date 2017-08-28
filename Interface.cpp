@@ -83,6 +83,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                 mexErrMsgTxt("Unrecognized model.");
                 break;
         }
+        model->set_init_weights(init_weight);
 
         // TIMING TEST
         gettimeofday(&tp, NULL);
@@ -93,7 +94,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         double* stored_F;
         std::vector<double>* vec_stored_F;
         size_t len_stored_F;
-        //TODO: Add step_size and L as params
         switch(_hash(_algo)) {
             case _hash("GD"):
                 stored_F = grad_desc::GD(data, model, iteration_no, L, step_size,

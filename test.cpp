@@ -147,15 +147,16 @@ int main() {
     char* data_dir = (char*) "train(2d).dat";
     MAX_DIM = 2;
     try {
-        svm* rls = new svm(0.0001);
+        logistic* rls = new logistic(0.0001);
         Data* data = parse_data_2(data_dir);
         // double weight[2] = {200, -100};
         // rls->set_init_weights(weight);
         //cout << evaluate_lipschitz_constant(data, rls) << endl;
-        size_t iteration_no = 300;
+        size_t passes = 30;
+        size_t iteration_no = passes / 2;
         double* F = &(*grad_desc::Katyusha(data, rls, iteration_no, 1, 1, false, false, true))[0];
-
-        for(size_t i = 0; i < 40; i ++)
+        //double* F = grad_desc::SGD(data, rls, iteration_no, 1, 1, false, false, true);
+        for(size_t i = 0; i < passes; i ++)
             printf("%lf \n", F[i]);
 
         // :TIMING TEST

@@ -29,23 +29,18 @@ double svm::zero_component_oracle(Data* data, double* weights) const {
     return _F;
 }
 
-void svm::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
+double svm::first_component_oracle_core(Data* data, int given_index, double* weights) const {
     //Sub Gradient For SVM
     if(weights == NULL) weights = m_weights;
-    memset(_pF, 0, MAX_DIM * sizeof(double));
     double innr_xw = 0;
     Data::iterator iter = (*data)(given_index);
     while(iter.hasNext()) {
         innr_xw += weights[iter.getIndex()] * iter.next();
     }
-    if((*data)[given_index] * innr_xw < 1) {
-        iter.reset(given_index);
-        while(iter.hasNext()) {
-            // Prevent malposition for index.
-            size_t index = iter.getIndex();
-            _pF[index] = -(*data)[given_index] * iter.next();
-        }
-    }
+    if((*data)[given_index] * innr_xw < 1)
+        return -(*data)[given_index];
+    else
+        return 0.0;
 }
 
 int svm::classify(double* sample) const{

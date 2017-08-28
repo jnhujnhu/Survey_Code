@@ -26,22 +26,16 @@ double logistic::zero_component_oracle(Data* data, double* weights) const {
     return _F / (double) data->size();
 }
 
-void logistic::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
+double logistic::first_component_oracle_core(Data* data, int given_index, double* weights) const {
     if(weights == NULL) weights = m_weights;
-    memset(_pF, 0, MAX_DIM * sizeof(double));
-    double exp_yxw = 0.0;
+    double sigmoid = 0.0;
     Data::iterator iter = (*data)(given_index);
     while(iter.hasNext()){
-        exp_yxw += weights[iter.getIndex()] * iter.next();
+        sigmoid += weights[iter.getIndex()] * iter.next();
     }
-    exp_yxw = exp(exp_yxw * -(*data)[given_index]);
-
-    iter.reset(given_index);
-    while(iter.hasNext()) {
-        // Prevent malposition for index.
-        size_t index = iter.getIndex();
-        _pF[index] = iter.next() * -(*data)[given_index] * exp_yxw / (1 + exp_yxw);
-    }
+    sigmoid = exp(sigmoid * -(*data)[given_index]);
+    sigmoid = -(*data)[given_index] * sigmoid /  (1 + sigmoid);
+    return sigmoid;
 }
 
 int logistic::classify(double* sample) const{

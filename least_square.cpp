@@ -24,9 +24,8 @@ double least_square::zero_component_oracle(Data* data, double* weights) const {
     return _F;
 }
 
-void least_square::first_component_oracle(Data* data, double* _pF, int given_index, double* weights) const {
+double least_square::first_component_oracle_core(Data* data, int given_index, double* weights) const {
     if(weights == NULL) weights = m_weights;
-    memset(_pF, 0, MAX_DIM * sizeof(double));
     double _loss = 0, _inner_xw = 0;
     Data::iterator iter = (*data)(given_index);
     while(iter.hasNext()) {
@@ -34,11 +33,7 @@ void least_square::first_component_oracle(Data* data, double* _pF, int given_ind
     }
     _loss = _inner_xw - (*data)[given_index];
     iter.reset(given_index);
-    while(iter.hasNext()) {
-        // Prevent malposition for index.
-        size_t index = iter.getIndex();
-        _pF[index] = 2.0 * _loss * iter.next();
-    }
+    return 2.0 * _loss;
 }
 
 int least_square::classify(double* sample) const{
