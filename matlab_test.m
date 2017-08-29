@@ -7,18 +7,18 @@ X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
 X = X';
 
-algorithm = 'SVRG';
-model = 'logistic';
-regularizer = 'L2';
+algorithm = 'Katyusha'; % SGD / SVRG / Katyusha
+passes = 30;
+% For two-level algorithm, loop stands for outter loop count,
+% for SGD, loop stands for total loop count.
+loop = int64(passes / 2);
+model = 'logistic'; % least_square / svm / logistic
+regularizer = 'L2'; % L1 N/A for Katyusha
 init_weight = zeros(Dim, 1);
 lambda = 1 / N;
 %% For logistic regression
 L = (0.25 * max(sum(X.^2, 1)) + lambda);
 step_size = 1.0 / (5.0 * L);
-%% For two-level algorithm, stands for outter loop count,
-%% for SGD, stands for total loop count.
-passes = 30;
-loop = int64(passes / 2);
 is_store_iterates = true;
 is_plot = false;
 is_sparse = issparse(X);

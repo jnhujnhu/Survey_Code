@@ -24,10 +24,11 @@ public:
     virtual double first_component_oracle_core(Data* data, int given_index, double* weights = NULL) const = 0;
     virtual void first_regularizer_oracle(double* _pR, double* weights = NULL) const;
     virtual double proximal_regularizer(double& _prox, double step_size, size_t times = 1
-        , double additional_constant = 0.0, bool is_lazy = false, bool is_lazy_weighted = false
+        , double additional_constant = 0.0, bool is_lazy_weighted = false
         , double* lazy_average_weight = NULL) const;
     void set_init_weights(double* init_weights);
     double* get_model() const;
+    double get_param(size_t index) const;
     void update_model(double* new_weights);
 protected:
     int m_regularizer;

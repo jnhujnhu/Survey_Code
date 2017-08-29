@@ -41,8 +41,8 @@ void regularizer::first_oracle(int _regular, double* _pR, double lambda, double*
     }
 }
 double regularizer::proximal_operator(int _regular, double& _prox, double lambda
-    , double step_size, size_t times, double additional_constant, bool is_lazy
-    , bool is_lazy_weighted, double* lazy_average_weight) {
+    , double step_size, size_t times, double additional_constant, bool is_lazy_weighted
+    , double* lazy_average_weight) {
     double lazy_average = 0.0;
     switch(_regular) {
         case regularizer::L1: {
@@ -57,35 +57,29 @@ double regularizer::proximal_operator(int _regular, double& _prox, double lambda
                 double weight = 1.0;
                 if(is_lazy_weighted)
                     weight = lazy_average_weight[i];
-                if(is_lazy)
-                    lazy_average += weight * _prox;
+                lazy_average += weight * _prox;
             }
-            if(is_lazy)
-                return lazy_average;
-            else return 0.0;
+            return lazy_average;
             break;
         }
         case regularizer::L2: {
             double param = pow(1.0 / (1 + step_size * lambda), times);
-            if(is_lazy) {
-                if(!is_lazy_weighted) {
-                    double param_2 = additional_constant / (lambda * step_size);
-                    lazy_average = (_prox - param_2) * (1 - pow(1.0 / (1 + step_size * lambda), times))
-                                 / (lambda * step_size) + param_2 * times;
-                }
-                else {
-                    double param_2 = 1.0 / (1 + step_size * lambda);
-                    double _tx = _prox;
-                    for(size_t i = 0; i < times; i ++) {
-                        _tx = param_2 * (_tx + additional_constant);
-                        lazy_average += lazy_average_weight[i] * _tx;
-                    }
+            if(!is_lazy_weighted) {
+                double param_2 = additional_constant / (lambda * step_size);
+                lazy_average = (_prox - param_2) * (1 - param) / (lambda * step_size)
+                             + param_2 * times;
+            }
+            else {
+                assert(lazy_average_weight != NULL);
+                double param_2 = 1.0 / (1 + step_size * lambda);
+                double _tx = _prox;
+                for(size_t i = 0; i < times; i ++) {
+                    _tx = param_2 * (_tx + additional_constant);
+                    lazy_average += lazy_average_weight[i] * _tx;
                 }
             }
             _prox = _prox * param + additional_constant * (1 - param) / (lambda * step_size);
-            if(is_lazy)
-                return lazy_average;
-            else return 0.0;
+            return lazy_average;
             break;
         }
         default:
