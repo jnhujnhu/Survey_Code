@@ -293,8 +293,8 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
     return NULL;
 }
 
-double equal_ratio(double p, double k) {
-    return p * (1 - pow(p, k)) / (1 - p);
+double equal_ratio(double p, double pow_term) {
+    return p * (1 - pow_term) / (1 - p);
 }
 
 // Magic Code
@@ -308,20 +308,25 @@ double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_
     double Const = (tau_2 * _outterx - step_size_y * _F - tau_1 * _F / lambda)
                  / _factor;
     double Quo = A / Alpha;
+    double pow_A = pow(A, times);
+    double pow_compos_factor = pow(compos_factor, times);
+    double pow_Alpha = pow(Alpha, times);
     // Lazy Average
     double start_pos = pow(compos_factor, start_iter) / compos_base;
     double t_P1 = compos_factor * A;
-    double P1 = start_pos * _y0 * equal_ratio(t_P1, times);
+    double P1 = start_pos * _y0 * equal_ratio(t_P1, pow_compos_factor * pow_A);
     double t_P2 = tau_1 / (_factor * Alpha) * S * start_pos * A / (1 - A / Alpha);
-    double t2_P2 = equal_ratio(Alpha * compos_factor, times) - equal_ratio(A * compos_factor, times);
+    double t2_P2 = equal_ratio(Alpha * compos_factor, pow_Alpha * pow_compos_factor)
+                 - equal_ratio(t_P1, pow_compos_factor * pow_A);
     double P2 = t_P2 * t2_P2;
     double t_P3 = start_pos * A / (1 - A) * Const;
-    double t2_P3 = equal_ratio(compos_factor , times) - equal_ratio(A * compos_factor, times);
+    double t2_P3 = equal_ratio(compos_factor , pow_compos_factor)
+                 - equal_ratio(A * compos_factor, pow_A * pow_compos_factor);
     double P3 = t_P3 * t2_P3;
     double lazy_average = P1 + P2 + P3;
     // Proximal update K times
-    _y0 = pow(A, times) * _y0 + tau_1 / _factor * S * pow(Alpha , times - 1) * A
-    * (1 - pow(Quo, times)) / (1 - Quo) + equal_ratio(A, times) * Const;
+    _y0 = pow_A * _y0 + tau_1 / _factor * S * pow(Alpha , times - 1) * A
+    * (1 - pow(Quo, times)) / (1 - Quo) + equal_ratio(A, pow_A) * Const;
     return lazy_average;
 }
 
@@ -384,7 +389,6 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
                 double val = iter.next();
                 // lazy update
                 if((int)j > last_seen[index] + 1) {
-                    // FIXME:
                     aver_weights[index] += Katyusha_Y_L2_proximal(y[index], z[index]
                         , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[index]
                         , full_grad[index], j - (last_seen[index] + 1), last_seen[index]
