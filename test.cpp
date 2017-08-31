@@ -102,7 +102,8 @@ extern "C" {
     // }
     double* SVRG(blackbox* model, int step_no, Data* data) {
         size_t iter = step_no;
-        std::vector<double>* stored_weights = grad_desc::SVRG(data, model, iter, true, false);
+        std::vector<double>* stored_weights = grad_desc::Prox_SVRG(data, model, iter
+            , grad_desc::SVRG_LAST_LAST, 1, 1, true, false);
         return &(*stored_weights)[0];
     }
 }
@@ -147,16 +148,16 @@ int main() {
     char* data_dir = (char*) "train(2d).dat";
     MAX_DIM = 2;
     try {
-        least_square* rls = new least_square(0.0001);
+        logistic* rls = new logistic(0.0001, regularizer::L2);
         Data* data = parse_data_2(data_dir);
         // double weight[2] = {200, -100};
         // rls->set_init_weights(weight);
         //cout << evaluate_lipschitz_constant(data, rls) << endl;
         size_t passes = 30;
         size_t iteration_no = passes / 2;
-        double* F = &(*grad_desc::SVRG(data, rls, iteration_no, 1, 1, false, false, true))[0];
+        double* F = &(*grad_desc::SVRG(data, rls, iteration_no, 1, 1, 1, false, false, true))[0];
         //double* F = grad_desc::SGD(data, rls, iteration_no, 1, 1, false, false, true);
-        for(size_t i = 0; i < passes; i ++)
+        for(size_t i = 0; i < passes / 2; i ++)
             printf("%lf \n", F[i]);
 
         // :TIMING TEST

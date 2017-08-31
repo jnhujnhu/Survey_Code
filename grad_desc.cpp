@@ -11,6 +11,7 @@ void debug(std::string s, double a) {
         throw s + " " + std::to_string(a);
     }
 }
+
 double* grad_desc::GD(Data* data, blackbox* model, size_t iteration_no, double L, double step_size
     , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
     double* stored_weights = NULL;
@@ -127,75 +128,8 @@ double* grad_desc::SGD(Data* data, blackbox* model, size_t iteration_no, double 
     return NULL;
 }
 
-// Test Only
-double* grad_desc::KGD(Data* data, blackbox* model, size_t iteration_no, double L, double step_size
-    , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
-    // Random Generator
-    std::random_device rd;
-    std::default_random_engine generator(rd());
-    std::uniform_int_distribution<int> distribution(0, data->size() - 1);
-
-    double* stored_weights = NULL;
-    if(is_store_weight)
-        stored_weights = new double[iteration_no * MAX_DIM];
-
-    double* sub_grad = new double[MAX_DIM];
-    double* new_weights = new double[MAX_DIM];
-
-    size_t m = data->size() / 2.0, _m = 0;
-    double* k_grad = new double[MAX_DIM];
-    double _param1 = 2.0, _param2 = 0.1;
-    double variety = 0;
-
-    for(size_t i = 0; i < iteration_no; i ++) {
-        model->first_oracle(data, sub_grad, true, &generator, &distribution);
-        _m ++;
-        if(_m < m) {
-            double* temp_sg = new double[MAX_DIM];
-            copy_vec(temp_sg, sub_grad);
-            double l2_sg = comp_l2_norm(temp_sg);
-            for(size_t j = 0; j < MAX_DIM; j ++) {
-                temp_sg[j] /= l2_sg;
-                k_grad[j] += temp_sg[j];
-            }
-            delete[] temp_sg;
-        }
-        else {
-            variety = comp_l2_norm(k_grad);
-            printf("variety : %lf \n", variety);
-            //variety = _param2 * pow(variety, 1.0 / _param1);
-            for(size_t j = 0; j < MAX_DIM; j ++) {
-                k_grad[j] = 0.0;
-            }
-            _m = 0;
-        }
-
-        for(size_t j = 0; j < MAX_DIM; j ++) {
-            new_weights[j] = (model->get_model())[j] - step_size  * sub_grad[j];
-        }
-        model->update_model(new_weights);
-        if(is_debug_mode) {
-            double log_F = log(model->zero_oracle(data));
-            printf("KGD: Iteration %zd, log_F: %lf.\n", i, log_F);
-        }
-        // else
-        //     printf("KGD: Iteration %zd , variety: %lf.\n", i, variety);
-        if(is_store_weight) {
-            for(size_t j = 0; j < MAX_DIM; j ++) {
-                stored_weights[i * MAX_DIM + j] = new_weights[j];
-            }
-        }
-    }
-    //Final Output
-    double log_F = log(model->zero_oracle(data));
-    printf("KGD: Iteration %zd, log_F: %lf.\n", iteration_no, log_F);
-    delete[] sub_grad;
-    delete[] new_weights;
-    return stored_weights;
-}
-
-std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iteration_no, double L, double step_size
-    , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& iteration_no, int Mode
+    , double L, double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -208,6 +142,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
     //FIXME: Epoch Size(SVRG / SVRG++)
     double m0 = (double) N * 2.0;
     size_t total_iterations = 0;
+    copy_vec(inner_weights, model->get_model());
     // OUTTER_LOOP
     for(size_t i = 0 ; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
@@ -228,9 +163,19 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                 full_grad[index] += iter.next() * full_grad_core[j] / (double) N;
             }
         }
-        copy_vec(inner_weights, model->get_model());
+        switch(Mode) {
+            case SVRG_LAST_LAST:
+            case SVRG_AVER_LAST:
+                break;
+            case SVRG_AVER_AVER:
+                copy_vec(inner_weights, model->get_model());
+                break;
+            default:
+                throw std::string("Unrecognized Mode.");
+                break;
+        }
         // INNER_LOOP
-        for(size_t j = 0; j < inner_m ; j ++) {
+        for(size_t j = 0; j < inner_m; j ++) {
             int rand_samp = distribution(generator);
             double inner_core = model->first_component_oracle_core(data, rand_samp, inner_weights);
             for(Data::iterator iter = (*data)(rand_samp); iter.hasNext();) {
@@ -241,7 +186,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                     aver_weights[index] += model->proximal_regularizer(inner_weights[index]
                         , step_size, j - (last_seen[index] + 1), -step_size * full_grad[index]) / inner_m;
                 }
-                double vr_sub_grad = inner_core * val - full_grad_core[rand_samp] * val + full_grad[index];
+                double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[index];
                 inner_weights[index] -= step_size * vr_sub_grad;
                 aver_weights[index] += model->proximal_regularizer(inner_weights[index], step_size) / inner_m;
                 last_seen[index] = j;
@@ -252,7 +197,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                 for(size_t k = 0; k < MAX_DIM; k ++)
                     stored_weights->push_back(inner_weights[k]);
             }
-            // For Matlab
+            // For Matlab FIXME: Not reasonable to compute here!
             if(is_store_result) {
                 if(!(total_iterations % N)) {
                     stored_F->push_back(model->zero_oracle(data, inner_weights));
@@ -260,7 +205,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
             }
             if(is_debug_mode) {
                 double log_F = log(model->zero_oracle(data, inner_weights));
-                printf("SVRG: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
+                printf("Prox_SVRG: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
             }
         }
         // lazy update aggragate
@@ -270,14 +215,24 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                     , inner_m - (last_seen[j] + 1), -step_size * full_grad[j]) / inner_m;
             }
         }
-        //FIXME: Different Update Options.
-        model->update_model(aver_weights);
+        switch(Mode) {
+            case SVRG_LAST_LAST:
+                model->update_model(inner_weights);
+                break;
+            case SVRG_AVER_AVER:
+            case SVRG_AVER_LAST:
+                model->update_model(aver_weights);
+                break;
+            default:
+                throw std::string("Unrecognized Mode.");
+                break;
+        }
         delete[] last_seen;
         delete[] aver_weights;
         delete[] full_grad_core;
         if(is_debug_mode) {
             double log_F = log(model->zero_oracle(data));
-            printf("SVRG: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
+            printf("Prox_SVRG: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
         }
     }
     delete[] full_grad;
@@ -285,7 +240,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
     //Final Output
     double log_F = log(model->zero_oracle(data));
     iteration_no = total_iterations;
-    printf("SVRG: Total Iteration No.: %zd, logF = %lf.\n", total_iterations, log_F);
+    printf("Prox_SVRG: Total Iteration No.: %zd, logF = %lf.\n", total_iterations, log_F);
     if(is_store_weight)
         return stored_weights;
     if(is_store_result)
@@ -340,11 +295,11 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
     size_t m = 2.0 * data->size();
     size_t N = data->size();
     size_t total_iterations = 0;
-    double tau_2 = 0.5, tau_1 = 0.4999, sigma = 0.0001;
+    double lambda = model->get_param(0);
+    double tau_2 = 0.5, tau_1 = 0.4999, sigma = lambda;
     if(sqrt(sigma * m / (3.0 * L)) < 0.5) tau_1 = sqrt(sigma * m / (3.0 * L));
     double alpha = 1.0 / (tau_1 * 3.0 * L);
     double step_size_y = 1.0 / (3.0 * L);
-    double lambda = model->get_param(0);
     double compos_factor = 1 + alpha * sigma;
     double compos_base = 1 - (compos_factor - pow(compos_factor, m)) / (alpha * sigma);
     double* compos_weights = new double[m];
@@ -454,100 +409,5 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
     printf("Katyusha: Total Iteration No.: %zd, log_F: %lf.\n", total_iterations, log_F);
     if(is_store_result)
         return stored_F;
-    return NULL;
-}
-
-// std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& iteration_no, double L, double step_size
-//     , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
-//     //Random Generator
-//     std::vector<double>* stored_F = new std::vector<double>;
-//     std::random_device rd;
-//     std::default_random_engine generator(rd());
-//     std::uniform_int_distribution<int> distribution(0, data->size() - 1);
-//     size_t m = 2.0 * data->size();
-//     size_t total_iterations = 0;
-//     //FIXME: Adjust Factors. (Lipschitz Constant)
-//     double tau_2 = 0.5, tau_1 = 0.5, sigma = 0.0001;
-//     if(sqrt(sigma * m / (3.0 * L)) < 0.5) tau_1 = sqrt(sigma * m / (3.0 * L));
-//     double alpha = 1.0 / (tau_1 * 3.0 * L);
-//     double step_size_y = 1.0 / (3.0 * L);
-//     double compos_factor = 1 + alpha * sigma;
-//     double compos_base = 1 - (compos_factor - pow(compos_factor, m)) / (alpha * sigma);
-//     double* y = new double[MAX_DIM];
-//     double* z = new double[MAX_DIM];
-//     double* inner_weights = new double[MAX_DIM];
-//     double* full_grad = new double[MAX_DIM];
-//     //init vectors
-//     copy_vec(y, model->get_model());
-//     copy_vec(z, model->get_model());
-//     copy_vec(inner_weights, model->get_model());
-//     //OUTTER LOOP
-//     for(size_t i = 0; i < iteration_no; i ++) {
-//         model->first_component_oracle(data, full_grad);
-//         double* katyusha_grad = new double[MAX_DIM];
-//         double* inner_grad = new double[MAX_DIM];
-//         double* outter_grad = new double[MAX_DIM];
-//         double* new_weights = new double[MAX_DIM];
-//         //INNER LOOP
-//         for(size_t j = 0; j < m; j ++) {
-//             for(size_t k = 0; k < MAX_DIM; k ++) {
-//                 inner_weights[k] = tau_1 * z[k] + tau_2 * (model->get_model())[k]
-//                                  + (1 - tau_1 - tau_2) * y[k];
-//             }
-//             int rand_samp = distribution(generator);
-//             model->first_component_oracle(data, inner_grad, rand_samp, inner_weights);
-//             model->first_component_oracle(data, outter_grad, rand_samp);
-//             for(size_t k = 0; k < MAX_DIM; k ++) {
-//                 katyusha_grad[k] = full_grad[k] + inner_grad[k] - outter_grad[k];
-//                 z[k] -= alpha * katyusha_grad[k];
-//                 model->proximal_regularizer(z[k], alpha);
-//                 y[k] = inner_weights[k] - step_size_y * katyusha_grad[k];
-//                 model->proximal_regularizer(y[k], step_size_y);
-//                 new_weights[k] += pow(compos_factor, j) / compos_base * y[k];
-//             }
-//             total_iterations ++;
-//             // For Matlab
-//             if(is_store_result) {
-//                 if(!(total_iterations % data->size())) {
-//                     stored_F->push_back(model->zero_oracle(data, inner_weights));
-//                 }
-//             }
-//             if(is_debug_mode) {
-//                 double log_F = log(model->zero_oracle(data, inner_weights));
-//                 printf("Katyusha: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
-//             }
-//         }
-//         model->update_model(new_weights);
-//         delete[] katyusha_grad;
-//         delete[] inner_grad;
-//         delete[] outter_grad;
-//         delete[] new_weights;
-//         if(is_debug_mode) {
-//             double log_F = log(model->zero_oracle(data));
-//             printf("Katyusha: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
-//         }
-//     }
-//     delete[] y;
-//     delete[] z;
-//     delete[] inner_weights;
-//     delete[] full_grad;
-//     //Final Output
-//     double log_F = log(model->zero_oracle(data));
-//     iteration_no = total_iterations;
-//     printf("Katyusha: Total Iteration No.: %zd, log_F: %lf.\n", total_iterations, log_F);
-//     if(is_store_result)
-//         return stored_F;
-//     return NULL;
-// }
-
-std::vector<double>* grad_desc::SAG(Data* data, blackbox* model, double L
-    , double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
-    //TODO:
-    return NULL;
-}
-
-std::vector<double>* grad_desc::SAGA(Data* data, blackbox* model, double L
-    , double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
-    //TODO:
     return NULL;
 }

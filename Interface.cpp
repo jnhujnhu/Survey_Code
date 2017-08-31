@@ -46,6 +46,8 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         double lambda = mxGetScalar(prhs[6]);
         double L = mxGetScalar(prhs[7]);
         double step_size = mxGetScalar(prhs[8]);
+        // For SVRG
+        int Mode = (int) mxGetScalar(prhs[11]);
         size_t iteration_no = (size_t) mxGetScalar(prhs[9]);
         bool is_store_result = false;
         if(nlhs == 1)
@@ -105,8 +107,16 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                     false, false, is_store_result);
                 len_stored_F = (size_t) floor((double) iteration_no / data->size());
                 break;
+            case _hash("Prox_SVRG"):
+                vec_stored_F = grad_desc::Prox_SVRG(data, model, iteration_no, Mode, L, step_size,
+                    false, false, is_store_result);
+                stored_F = &(*vec_stored_F)[0];
+                len_stored_F = vec_stored_F->size();
+                break;
             case _hash("SVRG"):
-                vec_stored_F = grad_desc::SVRG(data, model, iteration_no, L, step_size,
+                if(regularizer == regularizer::L1)
+                    mexErrMsgTxt("SVRG not applicable to L1 regularizer.");
+                vec_stored_F = grad_desc::SVRG(data, model, iteration_no, Mode, L, step_size,
                     false, false, is_store_result);
                 stored_F = &(*vec_stored_F)[0];
                 len_stored_F = vec_stored_F->size();

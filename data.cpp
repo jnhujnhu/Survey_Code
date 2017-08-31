@@ -6,8 +6,7 @@ extern size_t MAX_DIM;
 
 void Data::boundChecking(size_t n, size_t d) const {
     if(d >= MAX_DIM || n >= size()) {
-        std::string err = "Bound Overflow.";
-        throw err;
+        throw std::string("Bound Overflow.");
     }
 }
 
@@ -40,8 +39,7 @@ double& Data::operator()(size_t n, size_t d) {
         return mData[n * MAX_DIM + d];
     }
     else {
-        std::string err = "Operator(n,d) does not support sparse data.";
-        throw err;
+        throw std::string("Operator(n,d) does not support sparse data.");
     }
 }
 
@@ -51,8 +49,7 @@ double Data::operator()(size_t n, size_t d) const {
         return mData[n * MAX_DIM + d];
     }
     else {
-        std::string err = "Operator(n,d) does not support sparse data.";
-        throw err;
+        throw std::string("Operator(n,d) does not support sparse data.");
     }
 }
 
@@ -92,8 +89,7 @@ double Data::iterator::next() {
         return data.mData[m_index ++];
     }
     else {
-        std::string err = "Data Bound Overflow.";
-        throw err;
+        throw std::string("Data Bound Overflow.");
     }
 }
 
