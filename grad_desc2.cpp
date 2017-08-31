@@ -34,7 +34,6 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
         // OUTTER_LOOP
         for(size_t i = 0 ; i < iteration_no; i ++) {
             double* full_grad_core = new double[N];
-            double* outter_weights = (model->get_model());
             // Average Iterates
             double* aver_weights = new double[MAX_DIM];
             // lazy update extra params.
@@ -49,8 +48,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                 full_grad_core[j] = model->first_component_oracle_core(data, j);
                 for(Data::iterator iter = (*data)(j); iter.hasNext();) {
                     size_t index = iter.getIndex();
-                    full_grad[index] += (iter.next() * full_grad_core[j]
-                                     + lambda * outter_weights[index]) / (double) N;
+                    full_grad[index] += (iter.next() * full_grad_core[j]) / (double) N;
                 }
             }
             switch(Mode) {
@@ -74,11 +72,11 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                     // lazy update
                     if((int)j > last_seen[index] + 1) {
                         aver_weights[index] += lazy_update_SVRG(inner_weights[index]
-                            , step_size * (lambda * outter_weights[index] - full_grad[index])
-                            , 1 - step_size * lambda, j - (last_seen[index] + 1)) / inner_m;
+                            , -step_size * full_grad[index], 1 - step_size * lambda
+                            , j - (last_seen[index] + 1)) / inner_m;
                     }
                     double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
-                             + (inner_weights[index] - outter_weights[index]) * lambda + full_grad[index];
+                             + inner_weights[index]* lambda + full_grad[index];
                     inner_weights[index] -= step_size * vr_sub_grad;
                     aver_weights[index] += inner_weights[index] / inner_m;
                     last_seen[index] = j;
@@ -89,12 +87,6 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                     for(size_t k = 0; k < MAX_DIM; k ++)
                         stored_weights->push_back(inner_weights[k]);
                 }
-                // For Matlab
-                // if(is_store_result) {
-                //     if(!(total_iterations % N)) {
-                //         stored_F->push_back(model->zero_oracle(data, inner_weights));
-                //     }
-                // }
                 if(is_debug_mode) {
                     double log_F = log(model->zero_oracle(data, inner_weights));
                     printf("SVRG: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
@@ -104,8 +96,8 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
             for(size_t j = 0; j < MAX_DIM; j ++) {
                 if(inner_m > last_seen[j] + 1) {
                     aver_weights[j] += lazy_update_SVRG(inner_weights[j]
-                        , step_size * (lambda * outter_weights[j] - full_grad[j])
-                        , 1 - step_size * lambda, inner_m - (last_seen[j] + 1)) / inner_m;
+                        , -step_size * full_grad[j], 1 - step_size * lambda
+                        , inner_m - (last_seen[j] + 1)) / inner_m;
                 }
             }
             switch(Mode) {
@@ -120,11 +112,9 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                     throw std::string("Unrecognized Mode.");
                     break;
             }
-            // FIXME: Test
+            // For Matlab (per m/n passes)
             if(is_store_result) {
-                if(!(total_iterations % N)) {
-                    stored_F->push_back(model->zero_oracle(data));
-                }
+                stored_F->push_back(model->zero_oracle(data));
             }
             delete[] last_seen;
             delete[] aver_weights;

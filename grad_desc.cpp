@@ -197,12 +197,6 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
                 for(size_t k = 0; k < MAX_DIM; k ++)
                     stored_weights->push_back(inner_weights[k]);
             }
-            // For Matlab FIXME: Not reasonable to compute here!
-            if(is_store_result) {
-                if(!(total_iterations % N)) {
-                    stored_F->push_back(model->zero_oracle(data, inner_weights));
-                }
-            }
             if(is_debug_mode) {
                 double log_F = log(model->zero_oracle(data, inner_weights));
                 printf("Prox_SVRG: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
@@ -226,6 +220,10 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
             default:
                 throw std::string("Unrecognized Mode.");
                 break;
+        }
+        // For Matlab (per m/n passes)
+        if(is_store_result) {
+            stored_F->push_back(model->zero_oracle(data));
         }
         delete[] last_seen;
         delete[] aver_weights;
