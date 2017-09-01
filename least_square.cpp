@@ -32,7 +32,6 @@ double least_square::first_component_oracle_core(Data* data, int given_index, do
         _inner_xw += weights[iter.getIndex()] * iter.next();
     }
     _loss = _inner_xw - (*data)[given_index];
-    iter.reset(given_index);
     return 2.0 * _loss;
 }
 

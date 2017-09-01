@@ -283,8 +283,8 @@ double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_
     return lazy_average;
 }
 
-std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& iteration_no, double L, double step_size
-    , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& iteration_no, double L
+    , double sigma, double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
     // Random Generator
     std::vector<double>* stored_F = new std::vector<double>;
     std::random_device rd;
@@ -294,7 +294,7 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
     size_t N = data->size();
     size_t total_iterations = 0;
     double lambda = model->get_param(0);
-    double tau_2 = 0.5, tau_1 = 0.4999, sigma = lambda;
+    double tau_2 = 0.5, tau_1 = 0.4999;
     if(sqrt(sigma * m / (3.0 * L)) < 0.5) tau_1 = sqrt(sigma * m / (3.0 * L));
     double alpha = 1.0 / (tau_1 * 3.0 * L);
     double step_size_y = 1.0 / (3.0 * L);
@@ -364,12 +364,6 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
                 last_seen[index] = j;
             }
             total_iterations ++;
-            // For Matlab
-            if(is_store_result) {
-                if(!(total_iterations % N)) {
-                    stored_F->push_back(model->zero_oracle(data, inner_weights));
-                }
-            }
             if(is_debug_mode) {
                 double log_F = log(model->zero_oracle(data, inner_weights));
                 printf("Katyusha: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
@@ -392,6 +386,10 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
         delete[] aver_weights;
         delete[] full_grad_core;
         delete[] last_seen;
+        // For Matlab
+        if(is_store_result) {
+            stored_F->push_back(model->zero_oracle(data));
+        }
         if(is_debug_mode) {
             double log_F = log(model->zero_oracle(data));
             printf("Katyusha: Outter Iteration %zd, log_F: %lf.\n", i, log_F);

@@ -45,6 +45,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         double *init_weight = mxGetPr(prhs[5]);
         double lambda = mxGetScalar(prhs[6]);
         double L = mxGetScalar(prhs[7]);
+        double sigma = mxGetScalar(prhs[12]);
         double step_size = mxGetScalar(prhs[8]);
         // For SVRG
         int Mode = (int) mxGetScalar(prhs[11]);
@@ -122,7 +123,9 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                 len_stored_F = vec_stored_F->size();
                 break;
             case _hash("Katyusha"):
-                vec_stored_F = grad_desc::Katyusha(data, model, iteration_no, L, step_size,
+                if(regularizer == regularizer::L1)
+                    mexErrMsgTxt("Katyusha not applicable to L1 regularizer.");
+                vec_stored_F = grad_desc::Katyusha(data, model, iteration_no, L, sigma, step_size,
                     false, false, is_store_result);
                 stored_F = &(*vec_stored_F)[0];
                 len_stored_F = vec_stored_F->size();

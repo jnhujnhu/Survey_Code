@@ -9,8 +9,8 @@ double lazy_update_SVRG(double& w, double Const, double A, size_t times) {
     double pow_A = pow(A, times);
     double T1 = A * (1 - pow_A) / (1 - A);
     double T2 = Const / (1 - A);
-    double lazy_average = T1 * w + T2 + T1 * T2;
-    w = pow_A * w + Const * (1 - pow_A) / (1 - A);
+    double lazy_average = T1 * w + T2 * times - T1 * T2;
+    w = pow_A * w + Const * T1 / A;
     return lazy_average;
 }
 

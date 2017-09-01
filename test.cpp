@@ -155,7 +155,7 @@ int main() {
         //cout << evaluate_lipschitz_constant(data, rls) << endl;
         size_t passes = 30;
         size_t iteration_no = passes / 2;
-        double* F = &(*grad_desc::SVRG(data, rls, iteration_no, 1, 1, 1, false, false, true))[0];
+        double* F = &(*grad_desc::Prox_SVRG(data, rls, iteration_no, 1, 1, 1, false, false, true))[0];
         //double* F = grad_desc::SGD(data, rls, iteration_no, 1, 1, false, false, true);
         for(size_t i = 0; i < passes / 2; i ++)
             printf("%lf \n", F[i]);
