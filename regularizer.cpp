@@ -107,7 +107,7 @@ double regularizer::proximal_operator(int _regular, double& _prox, double lambda
         }
         //FIXME: Ignored Lazy Weights to Speed Up.
         case regularizer::L2: {
-            double param = pow(1.0 / (1 + step_size * lambda), times);
+            double param = pow((double) 1.0 / (1 + step_size * lambda), (double) times);
             double param_2 = additional_constant / (lambda * step_size);
             lazy_average = (_prox - param_2) * (1 - param) / (lambda * step_size)
                          + param_2 * times;

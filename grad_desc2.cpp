@@ -6,7 +6,7 @@ extern size_t MAX_DIM;
 
 // w = A*w + Const
 double lazy_update_SVRG(double& w, double Const, double A, size_t times) {
-    double pow_A = pow(A, times);
+    double pow_A = pow((double)A, (double)times);
     double T1 = A * (1 - pow_A) / (1 - A);
     double T2 = Const / (1 - A);
     double lazy_average = T1 * w + T2 * times - T1 * T2;

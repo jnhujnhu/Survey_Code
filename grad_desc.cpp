@@ -261,11 +261,11 @@ double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_
     double Const = (tau_2 * _outterx - step_size_y * _F - tau_1 * _F / lambda)
                  / _factor;
     double Quo = A / Alpha;
-    double pow_A = pow(A, times);
-    double pow_compos_factor = pow(compos_factor, times);
-    double pow_Alpha = pow(Alpha, times);
+    double pow_A = pow((double)A, (double)times);
+    double pow_compos_factor = pow((double)compos_factor, (double)times);
+    double pow_Alpha = pow((double)Alpha, (double)times);
     // Lazy Average
-    double start_pos = pow(compos_factor, start_iter) / compos_base;
+    double start_pos = pow((double)compos_factor, (double)start_iter) / compos_base;
     double t_P1 = compos_factor * A;
     double P1 = start_pos * _y0 * equal_ratio(t_P1, pow_compos_factor * pow_A);
     double t_P2 = tau_1 / (_factor * Alpha) * S * start_pos * A / (1 - A / Alpha);
@@ -278,8 +278,8 @@ double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_
     double P3 = t_P3 * t2_P3;
     double lazy_average = P1 + P2 + P3;
     // Proximal update K times
-    _y0 = pow_A * _y0 + tau_1 / _factor * S * pow(Alpha , times - 1) * A
-    * (1 - pow(Quo, times)) / (1 - Quo) + equal_ratio(A, pow_A) * Const;
+    _y0 = pow_A * _y0 + tau_1 / _factor * S * pow((double)Alpha , (double)(times - 1)) * A
+    * (1 - pow((double)Quo, (double)times)) / (1 - Quo) + equal_ratio(A, pow_A) * Const;
     return lazy_average;
 }
 
@@ -299,10 +299,10 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
     double alpha = 1.0 / (tau_1 * 3.0 * L);
     double step_size_y = 1.0 / (3.0 * L);
     double compos_factor = 1 + alpha * sigma;
-    double compos_base = 1 - (compos_factor - pow(compos_factor, m)) / (alpha * sigma);
+    double compos_base = 1 - (compos_factor - pow((double)compos_factor, (double)m)) / (alpha * sigma);
     double* compos_weights = new double[m];
     for(size_t i = 0; i < m; i ++)
-        compos_weights[i] = pow(compos_factor, i) / compos_base;
+        compos_weights[i] = pow((double)compos_factor, (double)i) / compos_base;
     double* y = new double[MAX_DIM];
     double* z = new double[MAX_DIM];
     double* inner_weights = new double[MAX_DIM];

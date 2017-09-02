@@ -8,7 +8,6 @@
 #include "least_square.hpp"
 #include "utils.hpp"
 #include <string.h>
-#include <sys/time.h>
 
 size_t MAX_DIM;
 
@@ -34,13 +33,8 @@ Data* parse_data(const mxArray* prhs[], bool is_sparse) {
 
 void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     try {
-        // :TIMING TEST
-        struct timeval tp;
-        gettimeofday(&tp, NULL);
-        long int ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        // Encapsulate Data
         Data* data = parse_data(prhs, (bool) prhs[10]);
-        gettimeofday(&tp, NULL);
-        printf("Data Parse time: %ld ms\n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
 
         double *init_weight = mxGetPr(prhs[5]);
         double lambda = mxGetScalar(prhs[6]);
@@ -78,12 +72,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             model = new svm(lambda, regularizer);
         }
         else mexErrMsgTxt("Unrecognized model.");
-
         model->set_init_weights(init_weight);
-
-        // TIMING TEST
-        gettimeofday(&tp, NULL);
-        ms = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 
         char* _algo = new char[MAX_PARAM_STR_LEN];
         mxGetString(prhs[2], _algo, MAX_PARAM_STR_LEN);
@@ -123,10 +112,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             len_stored_F = vec_stored_F->size();
         }
         else mexErrMsgTxt("Unrecognized algorithm.");
-
-        //TIMING TEST
-        gettimeofday(&tp, NULL);
-        printf("Iteration time: %ld ms\n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
 
         if(is_store_result) {
             plhs[0] = mxCreateDoubleMatrix(len_stored_F, 1, mxREAL);

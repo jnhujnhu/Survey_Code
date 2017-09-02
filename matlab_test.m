@@ -1,6 +1,5 @@
-
 clear;
-load('rcv1_train.binary.mat');
+load 'news20.binary.mat';
 
 %% Parse Data
 X = [ones(size(X, 1), 1) X];
@@ -9,7 +8,7 @@ X = X';
 
 %% Set Params
 algorithm = 'SVRG'; % SGD / SVRG / Prox_SVRG / Katyusha
-passes = 30;
+passes = 50;
 % For two-level algorithm, loop stands for outter loop count,
 % for SGD, loop stands for total loop count.
 loop = int64(passes / 2);
@@ -17,29 +16,34 @@ model = 'logistic'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 N/A for Katyusha / SVRG
 init_weight = zeros(Dim, 1);
 lambda = 1 / N;
-% Mode 1: last_iter--last_iter, Mode 2: aver_iter--aver_iter, Mode 3: aver_iter--last_iter
-Mode = 1; % For SVRG
 L = (0.25 * max(sum(X.^2, 1)) + lambda); % For logistic regression
 sigma = 0.0001; % For Katyusha
 step_size = 1.0 / (5.0 * L);
-is_store_iterates = true;
-is_plot = true;
 is_sparse = issparse(X);
+
+is_plot = true;
 
 fprintf('Algorithm: %s\n', algorithm);
 fprintf('Model: %s-%s\n', regularizer, model);
-if (is_store_iterates)
-    stored_F = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
-    % disp(stored_F);
-else
-    Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
-end
 
+tic;
+% Mode 1: last_iter--last_iter, Mode 2: aver_iter--aver_iter, Mode 3: aver_iter--last_iter
+Mode = 1; % For SVRG / Prox_SVRG
+stored_SVRG_LL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
+time = toc;
+fprintf('Time: %f seconds \n', time);
+
+tic;
 Mode = 2;
 stored_SVRG_AA = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
+time = toc;
+fprintf('Time: %f seconds \n', time);
 
+tic;
 Mode = 3;
 stored_SVRG_AL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
+time = toc;
+fprintf('Time: %f seconds \n', time);
 
 % algorithm = 'Prox_SVRG';
 %
@@ -59,8 +63,10 @@ stored_SVRG_AL = Interface(X, y, algorithm, model, regularizer, init_weight, lam
 x1 = 1 : passes / 2;
 
 %% Plot
-fstar = 0.201831346413416; % for lambda = 1/n;
-if (is_plot && is_store_iterates)
+
+smallest_F = min([min(stored_SVRG_LL), min(stored_SVRG_AA), min(stored_SVRG_AL)]) - (1e-20);
+
+if (is_plot)
     fEvals = cell(3, 1);
     fVals = cell(3, 1);
     fEvals{1} = x1' * 2;
@@ -69,9 +75,9 @@ if (is_plot && is_store_iterates)
     % fEvals{4} = x1' * 2;
     % fEvals{5} = x1' * 2;
     % fEvals{6} = x1' * 2;
-    fVals{1} = stored_F - fstar;
-    fVals{2} = stored_SVRG_AA - fstar;
-    fVals{3} = stored_SVRG_AL - fstar;
+    fVals{1} = stored_SVRG_LL - smallest_F;
+    fVals{2} = stored_SVRG_AA - smallest_F;
+    fVals{3} = stored_SVRG_AL - smallest_F;
     % fVals{1} = stored_F - fstar;
     % fVals{2} = stored_SVRG_AA - fstar;
     % fVals{3} = stored_SVRG_AL - fstar;
