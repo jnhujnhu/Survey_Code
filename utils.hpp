@@ -51,8 +51,4 @@ inline std::vector<std::string> split(const std::string &s, const std::string &s
     return result;
 }
 
-inline constexpr unsigned int _hash(const char* str, int h = 0) {
-    return !str[h] ? 5381 : (_hash(str, h+1) * 33) ^ str[h];
-}
-
 #endif

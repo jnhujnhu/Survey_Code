@@ -7,7 +7,7 @@
 #include "logistic.hpp"
 #include "least_square.hpp"
 #include "utils.hpp"
-
+#include <string.h>
 #include <sys/time.h>
 
 size_t MAX_DIM;
@@ -57,35 +57,28 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         int regularizer;
         char* _regul = new char[MAX_PARAM_STR_LEN];
         mxGetString(prhs[4], _regul, MAX_PARAM_STR_LEN);
-        switch(_hash(_regul)) {
-            case _hash("L2"):
-                regularizer = regularizer::L2;
-                break;
-            case _hash("L1"):
-                regularizer = regularizer::L1;
-                break;
-            default:
-                mexErrMsgTxt("Unrecognized regularizer.");
-                break;
+        if(strcmp(_regul, "L2") == 0) {
+            regularizer = regularizer::L2;
         }
+        else if(strcmp(_regul, "L1") == 0){
+            regularizer = regularizer::L1;
+        }
+        else mexErrMsgTxt("Unrecognized regularizer.");
 
         blackbox* model;
         char* _model = new char[MAX_PARAM_STR_LEN];
         mxGetString(prhs[3], _model, MAX_PARAM_STR_LEN);
-        switch(_hash(_model)) {
-            case _hash("logistic"):
+        if(strcmp(_model, "logistic") == 0) {
                 model = new logistic(lambda, regularizer);
-                break;
-            case _hash("least_square"):
-                model = new least_square(lambda, regularizer);
-                break;
-            case _hash("svm"):
-                model = new svm(lambda, regularizer);
-                break;
-            default:
-                mexErrMsgTxt("Unrecognized model.");
-                break;
         }
+        else if(strcmp(_model, "least_square") == 0) {
+            model = new least_square(lambda, regularizer);
+        }
+        else if(strcmp(_model, "svm") == 0) {
+            model = new svm(lambda, regularizer);
+        }
+        else mexErrMsgTxt("Unrecognized model.");
+
         model->set_init_weights(init_weight);
 
         // TIMING TEST
@@ -97,43 +90,40 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         double* stored_F;
         std::vector<double>* vec_stored_F;
         size_t len_stored_F;
-        switch(_hash(_algo)) {
-            case _hash("GD"):
-                stored_F = grad_desc::GD(data, model, iteration_no, L, step_size,
-                    false, false, is_store_result);
-                len_stored_F = iteration_no;
-                break;
-            case _hash("SGD"):
-                stored_F = grad_desc::SGD(data, model, iteration_no, L, step_size,
-                    false, false, is_store_result);
-                len_stored_F = (size_t) floor((double) iteration_no / data->size());
-                break;
-            case _hash("Prox_SVRG"):
-                vec_stored_F = grad_desc::Prox_SVRG(data, model, iteration_no, Mode, L, step_size,
-                    false, false, is_store_result);
-                stored_F = &(*vec_stored_F)[0];
-                len_stored_F = vec_stored_F->size();
-                break;
-            case _hash("SVRG"):
-                if(regularizer == regularizer::L1)
-                    mexErrMsgTxt("SVRG not applicable to L1 regularizer.");
-                vec_stored_F = grad_desc::SVRG(data, model, iteration_no, Mode, L, step_size,
-                    false, false, is_store_result);
-                stored_F = &(*vec_stored_F)[0];
-                len_stored_F = vec_stored_F->size();
-                break;
-            case _hash("Katyusha"):
-                if(regularizer == regularizer::L1)
-                    mexErrMsgTxt("Katyusha not applicable to L1 regularizer.");
-                vec_stored_F = grad_desc::Katyusha(data, model, iteration_no, L, sigma, step_size,
-                    false, false, is_store_result);
-                stored_F = &(*vec_stored_F)[0];
-                len_stored_F = vec_stored_F->size();
-                break;
-            default:
-                mexErrMsgTxt("Unrecognized algorithm.");
-                break;
+        if(strcmp(_algo, "GD") == 0) {
+            stored_F = grad_desc::GD(data, model, iteration_no, L, step_size,
+                false, false, is_store_result);
+            len_stored_F = iteration_no;
         }
+        else if(strcmp(_algo, "SGD") == 0) {
+            stored_F = grad_desc::SGD(data, model, iteration_no, L, step_size,
+                false, false, is_store_result);
+            len_stored_F = (size_t) floor((double) iteration_no / data->size());
+        }
+        else if(strcmp(_algo, "Prox_SVRG") == 0) {
+            vec_stored_F = grad_desc::Prox_SVRG(data, model, iteration_no, Mode, L, step_size,
+                false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "SVRG") == 0) {
+            if(regularizer == regularizer::L1)
+                mexErrMsgTxt("SVRG not applicable to L1 regularizer.");
+            vec_stored_F = grad_desc::SVRG(data, model, iteration_no, Mode, L, step_size,
+                false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "Katyusha") == 0) {
+            if(regularizer == regularizer::L1)
+                mexErrMsgTxt("Katyusha not applicable to L1 regularizer.");
+            vec_stored_F = grad_desc::Katyusha(data, model, iteration_no, L, sigma, step_size,
+                false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else mexErrMsgTxt("Unrecognized algorithm.");
+
         //TIMING TEST
         gettimeofday(&tp, NULL);
         printf("Iteration time: %ld ms\n", tp.tv_sec * 1000 + tp.tv_usec / 1000 - ms);
