@@ -23,8 +23,8 @@ public:
     virtual void first_component_oracle(Data* data, double* _pF, int given_index, double* weights = NULL) const;
     virtual double first_component_oracle_core(Data* data, int given_index, double* weights = NULL) const = 0;
     virtual void first_regularizer_oracle(double* _pR, double* weights = NULL) const;
-    virtual double proximal_regularizer(double& _prox, double step_size, size_t times = 1
-        , double additional_constant = 0.0, bool is_averaged = true) const;
+    virtual double proximal_regularizer(double& _prox, double step_size, bool is_averaged = false
+        , size_t times = 1, double additional_constant = 0.0) const;
     void set_init_weights(double* init_weights);
     double* get_model() const;
     double get_param(size_t index) const;

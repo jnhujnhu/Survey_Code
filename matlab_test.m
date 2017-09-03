@@ -1,5 +1,6 @@
 clear;
-load 'real-sim.mat';
+%load 'real-sim.mat';
+load 'rcv1_train.binary.mat'
 
 %% Parse Data
 X = [ones(size(X, 1), 1) X];
@@ -7,21 +8,21 @@ X = [ones(size(X, 1), 1) X];
 X = X';
 
 %% Set Params
-algorithm = 'Prox_SVRG'; % SGD / SVRG / Prox_SVRG / Katyusha
-passes = 80;
+algorithm = 'Katyusha'; % SGD / SVRG / Prox_SVRG / Katyusha
+passes = 30;
 % For two-level algorithm, loop stands for outter loop count,
 % for SGD, loop stands for total loop count.
 loop = int64(passes / 2);
 model = 'logistic'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 N/A for Katyusha / SVRG
 init_weight = zeros(Dim, 1);
-lambda = 0.5 / N;
+lambda = 1 / N;
 L = (0.25 * max(sum(X.^2, 1)) + lambda); % For logistic regression
 sigma = 0.0001; % For Katyusha
 step_size = 1.0 / (5.0 * L);
 is_sparse = issparse(X);
 
-is_plot = true;
+is_plot = false;
 
 fprintf('Algorithm: %s\n', algorithm);
 fprintf('Model: %s-%s\n', regularizer, model);
@@ -32,18 +33,19 @@ Mode = 1; % For SVRG / Prox_SVRG
 stored_SVRG_LL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
 time = toc;
 fprintf('Time: %f seconds \n', time);
+fprintf('%.16f \n', stored_SVRG_LL);
 
-tic;
-Mode = 2;
-stored_SVRG_AA = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
-time = toc;
-fprintf('Time: %f seconds \n', time);
-
-tic;
-Mode = 3;
-stored_SVRG_AL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
-time = toc;
-fprintf('Time: %f seconds \n', time);
+% tic;
+% Mode = 2;
+% stored_SVRG_AA = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+%
+% tic;
+% Mode = 3;
+% stored_SVRG_AL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
 
 % algorithm = 'Prox_SVRG';
 %
@@ -63,9 +65,6 @@ fprintf('Time: %f seconds \n', time);
 x1 = 1 : passes / 2;
 
 %% Plot
-
-smallest_F = min([min(stored_SVRG_LL), min(stored_SVRG_AA), min(stored_SVRG_AL)]) - (5e-14);
-
 if (is_plot)
     fEvals = cell(3, 1);
     fVals = cell(3, 1);
@@ -75,6 +74,7 @@ if (is_plot)
     % fEvals{4} = x1' * 2;
     % fEvals{5} = x1' * 2;
     % fEvals{6} = x1' * 2;
+    smallest_F = min([min(stored_SVRG_LL), min(stored_SVRG_AA), min(stored_SVRG_AL)]) - (5e-14);
     fVals{1} = stored_SVRG_LL - smallest_F;
     fVals{2} = stored_SVRG_AA - smallest_F;
     fVals{3} = stored_SVRG_AL - smallest_F;

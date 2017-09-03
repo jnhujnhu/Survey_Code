@@ -1,7 +1,7 @@
 #include "grad_desc.hpp"
 #include "utils.hpp"
 #include <random>
-#include <math.h>
+#include <cmath>
 #include <string.h>
 
 extern size_t MAX_DIM;
@@ -82,7 +82,7 @@ double* grad_desc::SGD(Data* data, blackbox* model, size_t iteration_no, double 
             size_t index = iter.getIndex();
             // lazy update.
             if(new_weights[index] != 0 && (int)i > last_seen[index] + 1) {
-                model->proximal_regularizer(new_weights[index], step_size
+                model->proximal_regularizer(new_weights[index], step_size, false
                     , i - (last_seen[index] + 1));
             }
             new_weights[index] -= step_size * core * iter.next();
@@ -180,12 +180,12 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
                     switch(Mode) {
                         case SVRG_LAST_LAST:
                             model->proximal_regularizer(inner_weights[index]
-                                , step_size, j - (last_seen[index] + 1), -step_size * full_grad[index], false);
+                                , step_size, false, j - (last_seen[index] + 1), -step_size * full_grad[index]);
                             break;
                         case SVRG_AVER_LAST:
                         case SVRG_AVER_AVER:
                             aver_weights[index] += model->proximal_regularizer(inner_weights[index]
-                                , step_size, j - (last_seen[index] + 1), -step_size * full_grad[index]) / inner_m;
+                                , step_size, true, j - (last_seen[index] + 1), -step_size * full_grad[index]) / inner_m;
                             break;
                         default:
                             throw std::string("500 Internal Error.");
@@ -194,7 +194,7 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
                 }
                 double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[index];
                 inner_weights[index] -= step_size * vr_sub_grad;
-                aver_weights[index] += model->proximal_regularizer(inner_weights[index], step_size) / inner_m;
+                aver_weights[index] += model->proximal_regularizer(inner_weights[index], step_size, true) / inner_m;
                 last_seen[index] = j;
             }
             total_iterations ++;
@@ -214,12 +214,12 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
                 switch(Mode) {
                     case SVRG_LAST_LAST:
                         model->proximal_regularizer(inner_weights[j], step_size
-                            , inner_m - (last_seen[j] + 1), -step_size * full_grad[j], false);
+                            , false, inner_m - (last_seen[j] + 1), -step_size * full_grad[j]);
                         break;
                     case SVRG_AVER_LAST:
                     case SVRG_AVER_AVER:
                         aver_weights[j] += model->proximal_regularizer(inner_weights[j], step_size
-                            , inner_m - (last_seen[j] + 1), -step_size * full_grad[j]) / inner_m;
+                            , true, inner_m - (last_seen[j] + 1), -step_size * full_grad[j]) / inner_m;
                         break;
                     default:
                         throw std::string("500 Internal Error.");
@@ -271,33 +271,25 @@ double equal_ratio(double p, double pow_term) {
 // Magic Code
 double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_2
     , double lambda, double step_size_y, double alpha, double _outterx, double _F
-    , size_t times, int start_iter, double compos_factor, double compos_base) {
-    double _factor = (1 - tau_1 - tau_2);
-    double A = _factor / (1 + step_size_y * lambda);
-    double S = _z0 + _F / lambda;
-    double Alpha = 1 / (1 + lambda * alpha);
-    double Const = (tau_2 * _outterx - step_size_y * _F - tau_1 * _F / lambda)
-                 / _factor;
-    double Quo = A / Alpha;
-    double pow_A = pow((double)A, (double)times);
-    double pow_compos_factor = pow((double)compos_factor, (double)times);
-    double pow_Alpha = pow((double)Alpha, (double)times);
-    // Lazy Average
-    double start_pos = pow((double)compos_factor, (double)start_iter) / compos_base;
-    double t_P1 = compos_factor * A;
-    double P1 = start_pos * _y0 * equal_ratio(t_P1, pow_compos_factor * pow_A);
-    double t_P2 = tau_1 / (_factor * Alpha) * S * start_pos * A / (1 - A / Alpha);
-    double t2_P2 = equal_ratio(Alpha * compos_factor, pow_Alpha * pow_compos_factor)
-                 - equal_ratio(t_P1, pow_compos_factor * pow_A);
-    double P2 = t_P2 * t2_P2;
-    double t_P3 = start_pos * A / (1 - A) * Const;
-    double t2_P3 = equal_ratio(compos_factor , pow_compos_factor)
-                 - equal_ratio(A * compos_factor, pow_A * pow_compos_factor);
-    double P3 = t_P3 * t2_P3;
-    double lazy_average = P1 + P2 + P3;
-    // Proximal update K times
-    _y0 = pow_A * _y0 + tau_1 / _factor * S * pow((double)Alpha , (double)(times - 1)) * A
-    * (1 - pow((double)Quo, (double)times)) / (1 - Quo) + equal_ratio(A, pow_A) * Const;
+    , size_t times, int start_iter, double compos_factor, double compos_base, double* compos_pow) {
+    double lazy_average = 0.0;
+    // Constants
+    double prox_y = 1.0 / (1.0 + step_size_y * lambda);
+    double ETA = (1.0 - tau_1 - tau_2) * prox_y;
+    double M = tau_1 * prox_y * (_z0 + _F / lambda);
+    double A = 1.0 / (1.0 + alpha * lambda);
+    double constant = prox_y * (tau_2 * _outterx - _F * (step_size_y + tau_1 / lambda));
+    double MAETA = M / (A - ETA), CONSTETA = constant / (1.0 - ETA);
+    // Powers
+    double pow_eta = pow((double) ETA, (double) times);
+    double pow_A = pow((double) A, (double) times);
+
+    lazy_average = compos_pow[start_iter] / compos_base;
+    lazy_average *= equal_ratio(ETA * compos_factor, pow_eta * compos_pow[times])
+                 * (_y0 - MAETA - CONSTETA) + equal_ratio(A * compos_factor, pow_A * compos_pow[times])
+                 * MAETA + equal_ratio(compos_factor, compos_pow[times]) * CONSTETA;
+
+    _y0 = pow_eta * (_y0 - MAETA - CONSTETA) + MAETA * pow_A + CONSTETA;
     return lazy_average;
 }
 
@@ -312,15 +304,15 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
     size_t N = data->size();
     size_t total_iterations = 0;
     double lambda = model->get_param(0);
-    double tau_2 = 0.5, tau_1 = 0.4999;
+    double tau_2 = 0.5, tau_1 = 0.5;
     if(sqrt(sigma * m / (3.0 * L)) < 0.5) tau_1 = sqrt(sigma * m / (3.0 * L));
     double alpha = 1.0 / (tau_1 * 3.0 * L);
     double step_size_y = 1.0 / (3.0 * L);
-    double compos_factor = 1 + alpha * sigma;
-    double compos_base = 1 - (compos_factor - pow((double)compos_factor, (double)m)) / (alpha * sigma);
-    double* compos_weights = new double[m];
+    double compos_factor = 1.0 + alpha * sigma;
+    double compos_base = (pow((double)compos_factor, (double)m) - 1.0) / (alpha * sigma);
+    double* compos_pow = new double[m];
     for(size_t i = 0; i < m; i ++)
-        compos_weights[i] = pow((double)compos_factor, (double)i) / compos_base;
+        compos_pow[i] = pow((double)compos_factor, (double)i);
     double* y = new double[MAX_DIM];
     double* z = new double[MAX_DIM];
     double* inner_weights = new double[MAX_DIM];
@@ -363,8 +355,8 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
                     aver_weights[index] += Katyusha_Y_L2_proximal(y[index], z[index]
                         , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[index]
                         , full_grad[index], j - (last_seen[index] + 1), last_seen[index]
-                        , compos_factor, compos_base);
-                    model->proximal_regularizer(z[index], alpha, j - (last_seen[index] + 1)
+                        , compos_factor, compos_base, compos_pow);
+                    model->proximal_regularizer(z[index], alpha, false, j - (last_seen[index] + 1)
                          , -alpha * full_grad[index]);
                     inner_weights[index] = tau_1 * z[index] + tau_2 * outter_weights[index]
                                      + (1 - tau_1 - tau_2) * y[index];
@@ -374,7 +366,7 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
                 model->proximal_regularizer(z[index], alpha);
                 y[index] = inner_weights[index] - step_size_y * katyusha_grad;
                 model->proximal_regularizer(y[index], step_size_y);
-                aver_weights[index] += compos_weights[j] * y[index];
+                aver_weights[index] += compos_pow[j] / compos_base * y[index];
                 // (j + 1)th Inner Iteration
                 if(j < m - 1)
                     inner_weights[index] = tau_1 * z[index] + tau_2 * outter_weights[index]
@@ -393,8 +385,8 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
                 aver_weights[j] += Katyusha_Y_L2_proximal(y[j], z[j]
                     , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[j]
                     , full_grad[j], m - (last_seen[j] + 1), last_seen[j]
-                    , compos_factor, compos_base);
-                model->proximal_regularizer(z[j], alpha, m - (last_seen[j] + 1)
+                    , compos_factor, compos_base, compos_pow);
+                model->proximal_regularizer(z[j], alpha, false, m - (last_seen[j] + 1)
                      , -alpha * full_grad[j]);
                 inner_weights[j] = tau_1 * z[j] + tau_2 * outter_weights[j]
                                  + (1 - tau_1 - tau_2) * y[j];

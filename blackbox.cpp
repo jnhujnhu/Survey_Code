@@ -87,8 +87,8 @@ void blackbox::first_regularizer_oracle(double* _pR, double* weights) const {
     regularizer::first_oracle(m_regularizer, _pR, *m_params, weights);
 }
 
-double blackbox::proximal_regularizer(double& _prox, double step_size, size_t times
-    , double additional_constant, bool is_averaged) const {
+double blackbox::proximal_regularizer(double& _prox, double step_size, bool is_averaged
+    , size_t times, double additional_constant) const {
     return regularizer::proximal_operator(m_regularizer, _prox, *m_params, step_size, times
         , additional_constant, is_averaged);
 }
