@@ -6,12 +6,6 @@
 
 extern size_t MAX_DIM;
 
-void debug(std::string s, double a) {
-    if(a != a) {
-        throw s + " " + std::to_string(a);
-    }
-}
-
 double* grad_desc::GD(Data* data, blackbox* model, size_t iteration_no, double L, double step_size
     , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
     double* stored_weights = NULL;
@@ -171,7 +165,7 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
                 copy_vec(inner_weights, model->get_model());
                 break;
             default:
-                throw std::string("Unrecognized Mode.");
+                throw std::string("400 Unrecognized Mode.");
                 break;
         }
         // INNER_LOOP
@@ -183,8 +177,20 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
                 double val = iter.next();
                 // lazy update
                 if((int)j > last_seen[index] + 1) {
-                    aver_weights[index] += model->proximal_regularizer(inner_weights[index]
-                        , step_size, j - (last_seen[index] + 1), -step_size * full_grad[index]) / inner_m;
+                    switch(Mode) {
+                        case SVRG_LAST_LAST:
+                            model->proximal_regularizer(inner_weights[index]
+                                , step_size, j - (last_seen[index] + 1), -step_size * full_grad[index], false);
+                            break;
+                        case SVRG_AVER_LAST:
+                        case SVRG_AVER_AVER:
+                            aver_weights[index] += model->proximal_regularizer(inner_weights[index]
+                                , step_size, j - (last_seen[index] + 1), -step_size * full_grad[index]) / inner_m;
+                            break;
+                        default:
+                            throw std::string("500 Internal Error.");
+                            break;
+                    }
                 }
                 double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[index];
                 inner_weights[index] -= step_size * vr_sub_grad;
@@ -205,8 +211,20 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
         // lazy update aggragate
         for(size_t j = 0; j < MAX_DIM; j ++) {
             if(inner_m > last_seen[j] + 1) {
-                aver_weights[j] += model->proximal_regularizer(inner_weights[j], step_size
-                    , inner_m - (last_seen[j] + 1), -step_size * full_grad[j]) / inner_m;
+                switch(Mode) {
+                    case SVRG_LAST_LAST:
+                        model->proximal_regularizer(inner_weights[j], step_size
+                            , inner_m - (last_seen[j] + 1), -step_size * full_grad[j], false);
+                        break;
+                    case SVRG_AVER_LAST:
+                    case SVRG_AVER_AVER:
+                        aver_weights[j] += model->proximal_regularizer(inner_weights[j], step_size
+                            , inner_m - (last_seen[j] + 1), -step_size * full_grad[j]) / inner_m;
+                        break;
+                    default:
+                        throw std::string("500 Internal Error.");
+                        break;
+                }
             }
         }
         switch(Mode) {
@@ -218,7 +236,7 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
                 model->update_model(aver_weights);
                 break;
             default:
-                throw std::string("Unrecognized Mode.");
+                throw std::string("400 Unrecognized Mode.");
                 break;
         }
         // For Matlab (per m/n passes)

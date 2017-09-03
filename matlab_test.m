@@ -1,5 +1,5 @@
 clear;
-load 'news20.binary.mat';
+load 'real-sim.mat';
 
 %% Parse Data
 X = [ones(size(X, 1), 1) X];
@@ -7,15 +7,15 @@ X = [ones(size(X, 1), 1) X];
 X = X';
 
 %% Set Params
-algorithm = 'SVRG'; % SGD / SVRG / Prox_SVRG / Katyusha
-passes = 50;
+algorithm = 'Prox_SVRG'; % SGD / SVRG / Prox_SVRG / Katyusha
+passes = 80;
 % For two-level algorithm, loop stands for outter loop count,
 % for SGD, loop stands for total loop count.
 loop = int64(passes / 2);
 model = 'logistic'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 N/A for Katyusha / SVRG
 init_weight = zeros(Dim, 1);
-lambda = 1 / N;
+lambda = 0.5 / N;
 L = (0.25 * max(sum(X.^2, 1)) + lambda); % For logistic regression
 sigma = 0.0001; % For Katyusha
 step_size = 1.0 / (5.0 * L);
@@ -64,7 +64,7 @@ x1 = 1 : passes / 2;
 
 %% Plot
 
-smallest_F = min([min(stored_SVRG_LL), min(stored_SVRG_AA), min(stored_SVRG_AL)]) - (1e-20);
+smallest_F = min([min(stored_SVRG_LL), min(stored_SVRG_AA), min(stored_SVRG_AL)]) - (5e-14);
 
 if (is_plot)
     fEvals = cell(3, 1);

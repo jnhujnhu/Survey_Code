@@ -57,7 +57,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         else if(strcmp(_regul, "L1") == 0){
             regularizer = regularizer::L1;
         }
-        else mexErrMsgTxt("Unrecognized regularizer.");
+        else mexErrMsgTxt("400 Unrecognized regularizer.");
 
         blackbox* model;
         char* _model = new char[MAX_PARAM_STR_LEN];
@@ -71,7 +71,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         else if(strcmp(_model, "svm") == 0) {
             model = new svm(lambda, regularizer);
         }
-        else mexErrMsgTxt("Unrecognized model.");
+        else mexErrMsgTxt("400 Unrecognized model.");
         model->set_init_weights(init_weight);
 
         char* _algo = new char[MAX_PARAM_STR_LEN];
@@ -97,7 +97,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         }
         else if(strcmp(_algo, "SVRG") == 0) {
             if(regularizer == regularizer::L1)
-                mexErrMsgTxt("SVRG not applicable to L1 regularizer.");
+                mexErrMsgTxt("405 SVRG not applicable to L1 regularizer.");
             vec_stored_F = grad_desc::SVRG(data, model, iteration_no, Mode, L, step_size,
                 false, false, is_store_result);
             stored_F = &(*vec_stored_F)[0];
@@ -105,13 +105,13 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         }
         else if(strcmp(_algo, "Katyusha") == 0) {
             if(regularizer == regularizer::L1)
-                mexErrMsgTxt("Katyusha not applicable to L1 regularizer.");
+                mexErrMsgTxt("405 Katyusha not applicable to L1 regularizer.");
             vec_stored_F = grad_desc::Katyusha(data, model, iteration_no, L, sigma, step_size,
                 false, false, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
-        else mexErrMsgTxt("Unrecognized algorithm.");
+        else mexErrMsgTxt("400 Unrecognized algorithm.");
 
         if(is_store_result) {
             plhs[0] = mxCreateDoubleMatrix(len_stored_F, 1, mxREAL);

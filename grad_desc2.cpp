@@ -5,11 +5,14 @@
 extern size_t MAX_DIM;
 
 // w = A*w + Const
-double lazy_update_SVRG(double& w, double Const, double A, size_t times) {
+double lazy_update_SVRG(double& w, double Const, double A, size_t times, bool is_averaged = true) {
     double pow_A = pow((double)A, (double)times);
     double T1 = A * (1 - pow_A) / (1 - A);
-    double T2 = Const / (1 - A);
-    double lazy_average = T1 * w + T2 * times - T1 * T2;
+    double lazy_average = 0.0;
+    if(is_averaged) {
+        double T2 = Const / (1 - A);
+        lazy_average = T1 * w + T2 * times - T1 * T2;
+    }
     w = pow_A * w + Const * T1 / A;
     return lazy_average;
 }
@@ -59,7 +62,7 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                     copy_vec(inner_weights, model->get_model());
                     break;
                 default:
-                    throw std::string("Unrecognized Mode.");
+                    throw std::string("400 Unrecognized Mode.");
                     break;
             }
             // INNER_LOOP
@@ -71,9 +74,21 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                     double val = iter.next();
                     // lazy update
                     if((int)j > last_seen[index] + 1) {
-                        aver_weights[index] += lazy_update_SVRG(inner_weights[index]
-                            , -step_size * full_grad[index], 1 - step_size * lambda
-                            , j - (last_seen[index] + 1)) / inner_m;
+                        switch(Mode) {
+                            case SVRG_LAST_LAST:
+                                lazy_update_SVRG(inner_weights[index], -step_size * full_grad[index]
+                                    , 1 - step_size * lambda, j - (last_seen[index] + 1), false);
+                                break;
+                            case SVRG_AVER_LAST:
+                            case SVRG_AVER_AVER:
+                                aver_weights[index] += lazy_update_SVRG(inner_weights[index]
+                                    , -step_size * full_grad[index], 1 - step_size * lambda
+                                    , j - (last_seen[index] + 1)) / inner_m;
+                                break;
+                            default:
+                                throw std::string("500 Internal Error.");
+                                break;
+                        }
                     }
                     double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
                              + inner_weights[index]* lambda + full_grad[index];
@@ -95,9 +110,21 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
             // lazy update aggragate
             for(size_t j = 0; j < MAX_DIM; j ++) {
                 if(inner_m > last_seen[j] + 1) {
-                    aver_weights[j] += lazy_update_SVRG(inner_weights[j]
-                        , -step_size * full_grad[j], 1 - step_size * lambda
-                        , inner_m - (last_seen[j] + 1)) / inner_m;
+                    switch(Mode) {
+                        case SVRG_LAST_LAST:
+                            lazy_update_SVRG(inner_weights[j], -step_size * full_grad[j]
+                                , 1 - step_size * lambda, inner_m - (last_seen[j] + 1), false);
+                            break;
+                        case SVRG_AVER_LAST:
+                        case SVRG_AVER_AVER:
+                            aver_weights[j] += lazy_update_SVRG(inner_weights[j]
+                                , -step_size * full_grad[j], 1 - step_size * lambda
+                                , inner_m - (last_seen[j] + 1)) / inner_m;
+                            break;
+                        default:
+                            throw std::string("500 Internal Error.");
+                            break;
+                    }
                 }
             }
             switch(Mode) {
