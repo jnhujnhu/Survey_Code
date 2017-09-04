@@ -108,36 +108,32 @@ std::vector<double>* grad_desc::SVRG(Data* data, blackbox* model, size_t& iterat
                 }
             }
             // lazy update aggragate
-            for(size_t j = 0; j < MAX_DIM; j ++) {
-                if(inner_m > last_seen[j] + 1) {
-                    switch(Mode) {
-                        case SVRG_LAST_LAST:
-                            lazy_update_SVRG(inner_weights[j], -step_size * full_grad[j]
-                                , 1 - step_size * lambda, inner_m - (last_seen[j] + 1), false);
-                            break;
-                        case SVRG_AVER_LAST:
-                        case SVRG_AVER_AVER:
-                            aver_weights[j] += lazy_update_SVRG(inner_weights[j]
-                                , -step_size * full_grad[j], 1 - step_size * lambda
-                                , inner_m - (last_seen[j] + 1)) / inner_m;
-                            break;
-                        default:
-                            throw std::string("500 Internal Error.");
-                            break;
-                    }
+            if(data->issparse()) {
+                switch(Mode) {
+                    case SVRG_LAST_LAST:
+                        for(size_t j = 0; j < MAX_DIM; j ++) {
+                            if(inner_m > last_seen[j] + 1) {
+                                lazy_update_SVRG(inner_weights[j], -step_size * full_grad[j]
+                                    , 1 - step_size * lambda, inner_m - (last_seen[j] + 1), false);
+                            }
+                        }
+                        model->update_model(inner_weights);
+                        break;
+                    case SVRG_AVER_LAST:
+                    case SVRG_AVER_AVER:
+                        for(size_t j = 0; j < MAX_DIM; j ++) {
+                            if(inner_m > last_seen[j] + 1) {
+                                aver_weights[j] += lazy_update_SVRG(inner_weights[j]
+                                    , -step_size * full_grad[j], 1 - step_size * lambda
+                                    , inner_m - (last_seen[j] + 1)) / inner_m;
+                            }
+                        }
+                        model->update_model(aver_weights);
+                        break;
+                    default:
+                        throw std::string("500 Internal Error.");
+                        break;
                 }
-            }
-            switch(Mode) {
-                case SVRG_LAST_LAST:
-                    model->update_model(inner_weights);
-                    break;
-                case SVRG_AVER_AVER:
-                case SVRG_AVER_LAST:
-                    model->update_model(aver_weights);
-                    break;
-                default:
-                    throw std::string("Unrecognized Mode.");
-                    break;
             }
             // For Matlab (per m/n passes)
             if(is_store_result) {

@@ -67,6 +67,10 @@ size_t Data::size() const {
     return mN;
 }
 
+bool Data::issparse() const {
+    return is_sparse;
+}
+
 void Data::iterator::reset(size_t n) {
     if(data.is_sparse)
         m_index = data.jc[n];

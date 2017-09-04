@@ -209,35 +209,31 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
             }
         }
         // lazy update aggragate
-        for(size_t j = 0; j < MAX_DIM; j ++) {
-            if(inner_m > last_seen[j] + 1) {
-                switch(Mode) {
-                    case SVRG_LAST_LAST:
-                        model->proximal_regularizer(inner_weights[j], step_size
-                            , false, inner_m - (last_seen[j] + 1), -step_size * full_grad[j]);
-                        break;
-                    case SVRG_AVER_LAST:
-                    case SVRG_AVER_AVER:
-                        aver_weights[j] += model->proximal_regularizer(inner_weights[j], step_size
-                            , true, inner_m - (last_seen[j] + 1), -step_size * full_grad[j]) / inner_m;
-                        break;
-                    default:
-                        throw std::string("500 Internal Error.");
-                        break;
-                }
+        if(data->issparse()) {
+            switch(Mode) {
+                case SVRG_LAST_LAST:
+                    for(size_t j = 0; j < MAX_DIM; j ++) {
+                        if(inner_m > last_seen[j] + 1) {
+                            model->proximal_regularizer(inner_weights[j], step_size
+                                , false, inner_m - (last_seen[j] + 1), -step_size * full_grad[j]);
+                        }
+                    }
+                    model->update_model(inner_weights);
+                    break;
+                case SVRG_AVER_LAST:
+                case SVRG_AVER_AVER:
+                    for(size_t j = 0; j < MAX_DIM; j ++) {
+                        if(inner_m > last_seen[j] + 1) {
+                            aver_weights[j] += model->proximal_regularizer(inner_weights[j], step_size
+                                , true, inner_m - (last_seen[j] + 1), -step_size * full_grad[j]) / inner_m;
+                        }
+                    }
+                    model->update_model(aver_weights);
+                    break;
+                default:
+                    throw std::string("500 Internal Error.");
+                    break;
             }
-        }
-        switch(Mode) {
-            case SVRG_LAST_LAST:
-                model->update_model(inner_weights);
-                break;
-            case SVRG_AVER_AVER:
-            case SVRG_AVER_LAST:
-                model->update_model(aver_weights);
-                break;
-            default:
-                throw std::string("400 Unrecognized Mode.");
-                break;
         }
         // For Matlab (per m/n passes)
         if(is_store_result) {
@@ -284,10 +280,13 @@ double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_
     double pow_eta = pow((double) ETA, (double) times);
     double pow_A = pow((double) A, (double) times);
 
-    lazy_average = compos_pow[start_iter] / compos_base;
-    lazy_average *= equal_ratio(ETA * compos_factor, pow_eta * compos_pow[times])
-                 * (_y0 - MAETA - CONSTETA) + equal_ratio(A * compos_factor, pow_A * compos_pow[times])
-                 * MAETA + equal_ratio(compos_factor, compos_pow[times]) * CONSTETA;
+    if(start_iter == -1)
+        lazy_average = 1.0 / (compos_base * compos_factor);
+    else
+        lazy_average = compos_pow[start_iter] / compos_base;
+    lazy_average *= equal_ratio(ETA * compos_factor, pow_eta * compos_pow[times])* (_y0 - MAETA - CONSTETA)
+                 + equal_ratio(A * compos_factor, pow_A * compos_pow[times])* MAETA
+                 + equal_ratio(compos_factor, compos_pow[times]) * CONSTETA;
 
     _y0 = pow_eta * (_y0 - MAETA - CONSTETA) + MAETA * pow_A + CONSTETA;
     return lazy_average;
@@ -310,8 +309,8 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
     double step_size_y = 1.0 / (3.0 * L);
     double compos_factor = 1.0 + alpha * sigma;
     double compos_base = (pow((double)compos_factor, (double)m) - 1.0) / (alpha * sigma);
-    double* compos_pow = new double[m];
-    for(size_t i = 0; i < m; i ++)
+    double* compos_pow = new double[m + 1];
+    for(size_t i = 0; i <= m; i ++)
         compos_pow[i] = pow((double)compos_factor, (double)i);
     double* y = new double[MAX_DIM];
     double* z = new double[MAX_DIM];
@@ -380,16 +379,18 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
             }
         }
         // lazy update aggragate
-        for(size_t j = 0; j < MAX_DIM; j ++) {
-            if(m > last_seen[j] + 1) {
-                aver_weights[j] += Katyusha_Y_L2_proximal(y[j], z[j]
-                    , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[j]
-                    , full_grad[j], m - (last_seen[j] + 1), last_seen[j]
-                    , compos_factor, compos_base, compos_pow);
-                model->proximal_regularizer(z[j], alpha, false, m - (last_seen[j] + 1)
-                     , -alpha * full_grad[j]);
-                inner_weights[j] = tau_1 * z[j] + tau_2 * outter_weights[j]
-                                 + (1 - tau_1 - tau_2) * y[j];
+        if(data->issparse()) {
+            for(size_t j = 0; j < MAX_DIM; j ++) {
+                if(m > last_seen[j] + 1) {
+                    aver_weights[j] += Katyusha_Y_L2_proximal(y[j], z[j]
+                        , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[j]
+                        , full_grad[j], m - (last_seen[j] + 1), last_seen[j]
+                        , compos_factor, compos_base, compos_pow);
+                    model->proximal_regularizer(z[j], alpha, false, m - (last_seen[j] + 1)
+                         , -alpha * full_grad[j]);
+                    inner_weights[j] = tau_1 * z[j] + tau_2 * outter_weights[j]
+                                     + (1 - tau_1 - tau_2) * y[j];
+                }
             }
         }
         model->update_model(aver_weights);
@@ -409,6 +410,7 @@ std::vector<double>* grad_desc::Katyusha(Data* data, blackbox* model, size_t& it
     delete[] z;
     delete[] inner_weights;
     delete[] full_grad;
+    delete[] compos_pow;
     //Final Output
     double log_F = log(model->zero_oracle(data));
     iteration_no = total_iterations;

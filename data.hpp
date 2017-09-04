@@ -31,6 +31,7 @@ public:
     double& operator[](size_t n);
     double operator[](size_t n) const;
     size_t size() const;
+    bool issparse() const;
 private:
     size_t mN;
     std::vector<double> mData;
