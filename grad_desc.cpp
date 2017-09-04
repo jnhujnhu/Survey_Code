@@ -260,10 +260,6 @@ std::vector<double>* grad_desc::Prox_SVRG(Data* data, blackbox* model, size_t& i
     return NULL;
 }
 
-double equal_ratio(double p, double pow_term) {
-    return p * (1 - pow_term) / (1 - p);
-}
-
 // Magic Code
 double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_2
     , double lambda, double step_size_y, double alpha, double _outterx, double _F
@@ -284,9 +280,9 @@ double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_
         lazy_average = 1.0 / (compos_base * compos_factor);
     else
         lazy_average = compos_pow[start_iter] / compos_base;
-    lazy_average *= equal_ratio(ETA * compos_factor, pow_eta * compos_pow[times])* (_y0 - MAETA - CONSTETA)
-                 + equal_ratio(A * compos_factor, pow_A * compos_pow[times])* MAETA
-                 + equal_ratio(compos_factor, compos_pow[times]) * CONSTETA;
+    lazy_average *= equal_ratio(ETA * compos_factor, pow_eta * compos_pow[times], times)* (_y0 - MAETA - CONSTETA)
+                 + equal_ratio(A * compos_factor, pow_A * compos_pow[times], times)* MAETA
+                 + equal_ratio(compos_factor, compos_pow[times], times) * CONSTETA;
 
     _y0 = pow_eta * (_y0 - MAETA - CONSTETA) + MAETA * pow_A + CONSTETA;
     return lazy_average;

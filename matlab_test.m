@@ -1,7 +1,8 @@
 clear;
 %load 'real-sim.mat';
-load 'rcv1_train.binary.mat';
-%load 'a3a.mat';
+%load 'rcv1_train.binary.mat';
+load 'a3a.mat';
+%load 'Adult.mat';
 
 %% Parse Data
 X = [ones(size(X, 1), 1) X];
@@ -10,7 +11,7 @@ X = X';
 
 %% Set Params
 algorithm = 'Katyusha'; % SGD / SVRG / Prox_SVRG / Katyusha
-passes = 30;
+passes = 80;
 % For two-level algorithm, loop stands for outter loop count,
 % for SGD, loop stands for total loop count.
 loop = int64(passes / 2);
@@ -19,11 +20,11 @@ regularizer = 'L2'; % L1 N/A for Katyusha / SVRG
 init_weight = zeros(Dim, 1);
 lambda = 1 / N;
 L = (0.25 * max(sum(X.^2, 1)) + lambda); % For logistic regression
-sigma = 0.0001; % For Katyusha
+sigma = lambda; % For Katyusha
 step_size = 1.0 / (5.0 * L);
 is_sparse = issparse(X);
 
-is_plot = false;
+is_plot = true;
 
 fprintf('Algorithm: %s\n', algorithm);
 fprintf('Model: %s-%s\n', regularizer, model);
@@ -34,19 +35,20 @@ Mode = 1; % For SVRG / Prox_SVRG
 stored_SVRG_LL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
 time = toc;
 fprintf('Time: %f seconds \n', time);
-fprintf('%.16f \n', stored_SVRG_LL);
+% fprintf('%.16f \n', stored_SVRG_LL);
 
-% tic;
-% Mode = 2;
-% stored_SVRG_AA = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
-% time = toc;
-% fprintf('Time: %f seconds \n', time);
-%
-% tic;
-% Mode = 3;
-% stored_SVRG_AL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
-% time = toc;
-% fprintf('Time: %f seconds \n', time);
+algorithm = 'Prox_SVRG';
+tic;
+Mode = 1;
+stored_SVRG_AA = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
+time = toc;
+fprintf('Time: %f seconds \n', time);
+
+tic;
+Mode = 2;
+stored_SVRG_AL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
+time = toc;
+fprintf('Time: %f seconds \n', time);
 
 % algorithm = 'Prox_SVRG';
 %
@@ -92,7 +94,7 @@ if (is_plot)
     lineStyle = cellstr(['-'; '-'; '-'; '-'; '-'; '-'; '-'; '-']);
     markers = cellstr(['s'; 'o'; 'p'; '*'; 'd'; 'x'; 'h'; '+']);
     markerSpacing = [3 3 3 5 4 3 3 3; 2 1 3 2 4 6 2 4]';
-    names = cellstr(['SVRG_L_L '; 'SVRG_A_A '; 'SVRG_A_L ']);%; 'PSVRG_L_L'; 'PSVRG_A_A'; 'PSVRG_A_L']);
+    names = cellstr(['Katyusha '; 'SVRG_L_L '; 'SVRG_A_A ']);%; 'PSVRG_L_L'; 'PSVRG_A_A'; 'PSVRG_A_L']);
 
     options.legendLoc = 'NorthEast';
     options.logScale = 2;

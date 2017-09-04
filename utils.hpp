@@ -32,6 +32,13 @@ inline double comp_l1_norm(double* vec) {
     return res;
 }
 
+inline double equal_ratio(double p, double pow_term, double times) {
+    if(p == 1.0) // Degenerate Case.
+        return p * times;
+    else
+        return p * (1 - pow_term) / (1 - p);
+}
+
 inline void copy_vec(double* vec_to, double* vec_from) {
     for(size_t i = 0; i < MAX_DIM; i ++)
         vec_to[i] = vec_from[i];
