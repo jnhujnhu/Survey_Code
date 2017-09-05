@@ -1,7 +1,7 @@
 #include <iostream>
 #include "mex.h"
-#include "data.hpp"
-#include "grad_desc.hpp"
+#include "grad_desc_sparse.hpp"
+#include "grad_desc_dense.hpp"
 #include "svm.hpp"
 #include "regularizer.hpp"
 #include "logistic.hpp"
@@ -10,32 +10,21 @@
 #include <string.h>
 
 size_t MAX_DIM;
-
 const size_t MAX_PARAM_STR_LEN = 15;
-
-Data* parse_data(const mxArray* prhs[], bool is_sparse) {
-    double *X = mxGetPr(prhs[0]);
-    double *Y = mxGetPr(prhs[1]);
-    size_t* jc;
-    size_t* ir;
-    MAX_DIM = mxGetM(prhs[0]);
-    size_t N = mxGetN(prhs[0]);
-    Data* data;
-    if(is_sparse) {
-        jc = mxGetJc(prhs[0]);
-        ir = mxGetIr(prhs[0]);
-        data = new Data(N, X, Y, is_sparse, jc, ir);
-    }
-    else
-        data = new Data(N, X, Y);
-    return data;
-}
 
 void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
     try {
-        // Encapsulate Data
-        Data* data = parse_data(prhs, (bool) prhs[10]);
-
+        double *X = mxGetPr(prhs[0]);
+        double *Y = mxGetPr(prhs[1]);
+        MAX_DIM = mxGetM(prhs[0]);
+        size_t N = mxGetN(prhs[0]);
+        bool is_sparse = mxGetLogicals(prhs[10])[0];
+        size_t* Jc;
+        size_t* Ir;
+        if(is_sparse) {
+            Jc = mxGetJc(prhs[0]);
+            Ir = mxGetIr(prhs[0]);
+        }
         double *init_weight = mxGetPr(prhs[5]);
         double lambda = mxGetScalar(prhs[6]);
         double L = mxGetScalar(prhs[7]);
@@ -63,7 +52,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         char* _model = new char[MAX_PARAM_STR_LEN];
         mxGetString(prhs[3], _model, MAX_PARAM_STR_LEN);
         if(strcmp(_model, "logistic") == 0) {
-                model = new logistic(lambda, regularizer);
+            model = new logistic(lambda, regularizer);
         }
         else if(strcmp(_model, "least_square") == 0) {
             model = new least_square(lambda, regularizer);
@@ -80,34 +69,56 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         std::vector<double>* vec_stored_F;
         size_t len_stored_F;
         if(strcmp(_algo, "GD") == 0) {
-            stored_F = grad_desc::GD(data, model, iteration_no, L, step_size,
-                false, false, is_store_result);
+            if(regularizer == regularizer::L1)
+                mexErrMsgTxt("405 GD not applicable to L1 regularizer.");
+            if(is_sparse)
+                stored_F = grad_desc_sparse::GD(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+            else
+                stored_F = grad_desc_dense::GD(X, Y, N, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
             len_stored_F = iteration_no;
         }
         else if(strcmp(_algo, "SGD") == 0) {
-            stored_F = grad_desc::SGD(data, model, iteration_no, L, step_size,
-                false, false, is_store_result);
-            len_stored_F = (size_t) floor((double) iteration_no / data->size());
+            if(is_sparse)
+                stored_F = grad_desc_sparse::SGD(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+            else
+                stored_F = grad_desc_dense::SGD(X, Y, N, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+            len_stored_F = (size_t) floor((double) iteration_no / N);
         }
         else if(strcmp(_algo, "Prox_SVRG") == 0) {
-            vec_stored_F = grad_desc::Prox_SVRG(data, model, iteration_no, Mode, L, step_size,
-                false, false, is_store_result);
+            if(is_sparse)
+                vec_stored_F = grad_desc_sparse::Prox_SVRG(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, step_size,
+                    false, false, is_store_result);
+            else
+                vec_stored_F = grad_desc_dense::Prox_SVRG(X, Y, N, model, iteration_no, Mode, L, step_size,
+                    false, false, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
         else if(strcmp(_algo, "SVRG") == 0) {
             if(regularizer == regularizer::L1)
                 mexErrMsgTxt("405 SVRG not applicable to L1 regularizer.");
-            vec_stored_F = grad_desc::SVRG(data, model, iteration_no, Mode, L, step_size,
-                false, false, is_store_result);
+            if(is_sparse)
+                vec_stored_F = grad_desc_sparse::SVRG(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, step_size,
+                    false, false, is_store_result);
+            else
+                vec_stored_F = grad_desc_dense::SVRG(X, Y, N, model, iteration_no, Mode, L, step_size,
+                    false, false, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
         else if(strcmp(_algo, "Katyusha") == 0) {
             if(regularizer == regularizer::L1)
                 mexErrMsgTxt("405 Katyusha not applicable to L1 regularizer.");
-            vec_stored_F = grad_desc::Katyusha(data, model, iteration_no, L, sigma, step_size,
-                false, false, is_store_result);
+            if(is_sparse)
+                vec_stored_F = grad_desc_sparse::Katyusha(X, Y, Jc, Ir, N, model, iteration_no, L, sigma, step_size,
+                    false, false, is_store_result);
+            else
+                vec_stored_F = grad_desc_dense::Katyusha(X, Y, N, model, iteration_no, L, sigma, step_size,
+                    false, false, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
@@ -121,7 +132,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         }
         delete[] stored_F;
         delete model;
-        delete data;
     } catch(std::string c) {
         std::cerr << c << std::endl;
         //exit(EXIT_FAILURE);

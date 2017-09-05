@@ -8,26 +8,21 @@ class blackbox {
 public:
     virtual ~blackbox();
     virtual int classify(double* sample) const = 0;
-    virtual double zero_oracle(Data* data, double* weights = NULL) const;
-    virtual double zero_component_oracle(Data* data, double* weights = NULL) const = 0;
+
+    virtual double zero_oracle_dense(double* X, double* Y, size_t N, double* weights = NULL) const;
+    virtual double zero_oracle_sparse(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, double* weights = NULL) const;
+    virtual double zero_component_oracle_dense(double* X, double* Y, size_t N, double* weights = NULL) const = 0;
+    virtual double zero_component_oracle_sparse(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, double* weights = NULL) const = 0;
     virtual double zero_regularizer_oracle(double* weights = NULL) const;
-    virtual void first_oracle(Data* data, double* _pF, bool is_stochastic = false
-            , std::default_random_engine* generator = NULL
-            , std::uniform_int_distribution<int>* distribution = NULL
-            , double* weights = NULL) const;
-    virtual void first_oracle(Data* data, double* _pF, int given_index, double* weights = NULL) const;
-    virtual void first_component_oracle(Data* data, double* _pF, bool is_stochastic = false
-            , std::default_random_engine* generator = NULL
-            , std::uniform_int_distribution<int>* distribution = NULL
-            , double* weights = NULL) const;
-    virtual void first_component_oracle(Data* data, double* _pF, int given_index, double* weights = NULL) const;
-    virtual double first_component_oracle_core(Data* data, int given_index, double* weights = NULL) const = 0;
+
+    virtual double first_component_oracle_core_dense(double* X, double* Y, size_t N, int given_index, double* weights = NULL) const = 0;
+    virtual double first_component_oracle_core_sparse(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, int given_index, double* weights = NULL) const = 0;
     virtual void first_regularizer_oracle(double* _pR, double* weights = NULL) const;
-    virtual double proximal_regularizer(double& _prox, double step_size, bool is_averaged = false
-        , size_t times = 1, double additional_constant = 0.0) const;
+
     void set_init_weights(double* init_weights);
     double* get_model() const;
     double get_param(size_t index) const;
+    int get_regularizer() const;
     void update_model(double* new_weights);
 protected:
     int m_regularizer;

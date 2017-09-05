@@ -8,7 +8,8 @@ namespace regularizer {
     const int NONE = -1;
     double zero_oracle(int _regular, double lambda, double* weight);
     void first_oracle(int _regular, double* _pR, double lambda, double* weight);
-    double proximal_operator(int _regular, double& _prox, double lambda, double step_size
-            , size_t times = 1, double additional_constant = 0.0, bool is_averaged = false);
+    double proximal_operator(int _regular, double& _prox, double step_size, double lambda
+            , size_t times, bool is_averaged = false, double additional_constant = 0.0);
+    double proximal_operator(int _regular, double& _prox, double step_size, double lambda);
 }
 #endif

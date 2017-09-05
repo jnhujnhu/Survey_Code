@@ -1,27 +1,33 @@
 clear;
 %load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
-load 'a3a.mat';
-%load 'Adult.mat';
-
+%load 'a9a.mat';
+load 'Adult.mat';% 0.3232888469179914
+%load 'covtype.mat';
 %% Parse Data
 X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
 X = X';
 
+%% Normalize Data
+sum1 = 1./sqrt(sum(X.^2, 1));
+if abs(sum1(1) - 1) > 10^(-10)
+    X = X.*repmat(sum1, Dim, 1);
+end
+
 %% Set Params
-algorithm = 'Katyusha'; % SGD / SVRG / Prox_SVRG / Katyusha
-passes = 80;
+algorithm = 'Prox_SVRG'; % SGD / SVRG / Prox_SVRG / Katyusha
+passes = 240;
 % For two-level algorithm, loop stands for outter loop count,
 % for SGD, loop stands for total loop count.
-loop = int64(passes / 2);
+loop = int64(passes / 3 );
 model = 'logistic'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 N/A for Katyusha / SVRG
 init_weight = zeros(Dim, 1);
-lambda = 1 / N;
+lambda = 10^(-6);
 L = (0.25 * max(sum(X.^2, 1)) + lambda); % For logistic regression
 sigma = lambda; % For Katyusha
-step_size = 1.0 / (5.0 * L);
+step_size = 1 / (5 * L);
 is_sparse = issparse(X);
 
 is_plot = true;
@@ -37,15 +43,14 @@ time = toc;
 fprintf('Time: %f seconds \n', time);
 % fprintf('%.16f \n', stored_SVRG_LL);
 
-algorithm = 'Prox_SVRG';
 tic;
-Mode = 1;
+Mode = 2;
 stored_SVRG_AA = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
 time = toc;
 fprintf('Time: %f seconds \n', time);
 
 tic;
-Mode = 2;
+Mode = 3;
 stored_SVRG_AL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
 time = toc;
 fprintf('Time: %f seconds \n', time);
@@ -65,7 +70,7 @@ fprintf('Time: %f seconds \n', time);
 % stored_Katyusha = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
 
 % X axis
-x1 = 1 : passes / 2;
+x1 = 1 : passes / 3;
 
 %% Plot
 if (is_plot)
@@ -77,7 +82,7 @@ if (is_plot)
     % fEvals{4} = x1' * 2;
     % fEvals{5} = x1' * 2;
     % fEvals{6} = x1' * 2;
-    smallest_F = min([min(stored_SVRG_LL), min(stored_SVRG_AA), min(stored_SVRG_AL)]) - (5e-14);
+    smallest_F = min([min(stored_SVRG_LL), min(stored_SVRG_AA), min(stored_SVRG_AA)]) - (6e-10);
     fVals{1} = stored_SVRG_LL - smallest_F;
     fVals{2} = stored_SVRG_AA - smallest_F;
     fVals{3} = stored_SVRG_AL - smallest_F;
@@ -94,7 +99,7 @@ if (is_plot)
     lineStyle = cellstr(['-'; '-'; '-'; '-'; '-'; '-'; '-'; '-']);
     markers = cellstr(['s'; 'o'; 'p'; '*'; 'd'; 'x'; 'h'; '+']);
     markerSpacing = [3 3 3 5 4 3 3 3; 2 1 3 2 4 6 2 4]';
-    names = cellstr(['Katyusha '; 'SVRG_L_L '; 'SVRG_A_A ']);%; 'PSVRG_L_L'; 'PSVRG_A_A'; 'PSVRG_A_L']);
+    names = cellstr(['SVRG_L_L '; 'SVRG_A_A '; 'SVRG_A_L ']);%; 'PSVRG_L_L'; 'PSVRG_A_A'; 'PSVRG_A_L']);
 
     options.legendLoc = 'NorthEast';
     options.logScale = 2;

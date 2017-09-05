@@ -59,13 +59,38 @@ double L1_proximal_loop(double& _prox, double param, size_t times, double additi
     return lazy_average;
 }
 
-double regularizer::proximal_operator(int _regular, double& _prox, double lambda
-    , double step_size, size_t times, double additional_constant, bool is_averaged) {
+double regularizer::proximal_operator(int _regular, double& _prox, double step_size
+    , double lambda) {
+    switch(_regular) {
+        case regularizer::L1: {
+            double param = step_size * lambda;
+            if(_prox > param)
+                _prox -= param;
+            else if(_prox < -param)
+                _prox += param;
+            else
+                _prox = 0;
+            return _prox;
+        }
+        case regularizer::L2: {
+            _prox = _prox / (1 + step_size * lambda);
+            return _prox;
+        }
+        default:
+            return 0.0;
+            break;
+    }
+}
+
+double regularizer::proximal_operator(int _regular, double& _prox, double step_size
+    , double lambda, size_t times, bool is_averaged, double additional_constant) {
     double lazy_average = 0.0;
     switch(_regular) {
         //FIXME: Ignored Lazy Weights to Speed Up.
         case regularizer::L1: {
             double param = step_size * lambda;
+            if(times == 1)
+                return L1_proximal_loop(_prox, param, times, additional_constant, is_averaged);
             if(_prox > param - additional_constant){
                 if(additional_constant > param) {
                     if(is_averaged)
@@ -112,6 +137,10 @@ double regularizer::proximal_operator(int _regular, double& _prox, double lambda
         }
         //FIXME: Ignored Lazy Weights to Speed Up.
         case regularizer::L2: {
+            if(times == 1) {
+                _prox = (_prox + additional_constant) / (1 + step_size * lambda);
+                return _prox;
+            }
             double param = pow((double) 1.0 / (1 + step_size * lambda), (double) times);
             double param_2 = additional_constant / (lambda * step_size);
             if(is_averaged)

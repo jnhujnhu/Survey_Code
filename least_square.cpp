@@ -8,30 +8,53 @@ least_square::least_square(double param, int regular) {
     *m_params = param;
     m_weights = new double[MAX_DIM];
 }
-
-double least_square::zero_component_oracle(Data* data, double* weights) const {
+double least_square::zero_component_oracle_dense(double* X, double* Y, size_t N, double* weights) const {
     if(weights == NULL) weights = m_weights;
     double _F = 0.0;
-    for(size_t i = 0; i < data->size(); i ++) {
+    for(size_t i = 0; i < N; i ++) {
         double _inner_xw = 0;
-        Data::iterator iter = (*data)(i);
-        while(iter.hasNext()) {
-            _inner_xw += weights[iter.getIndex()] * iter.next();
+        for(size_t j = 0; j < MAX_DIM; j ++) {
+            _inner_xw += weights[j] * X[i * MAX_DIM + j];
         }
-        _F += (_inner_xw - (*data)[i]) * (_inner_xw - (*data)[i]);
+        _F += (_inner_xw - Y[i]) * (_inner_xw - Y[i]);
     }
-    _F /= (double) data->size();
+    _F /= (double) N;
     return _F;
 }
 
-double least_square::first_component_oracle_core(Data* data, int given_index, double* weights) const {
+double least_square::zero_component_oracle_sparse(double* X, double* Y, size_t* Jc, size_t* Ir
+    , size_t N, double* weights) const {
+    if(weights == NULL) weights = m_weights;
+    double _F = 0.0;
+    for(size_t i = 0; i < N; i ++) {
+        double _inner_xw = 0;
+        for(size_t j = Jc[i]; j < Jc[i + 1]; j ++) {
+            _inner_xw += weights[Ir[j]] * X[j];
+        }
+        _F += (_inner_xw - Y[i]) * (_inner_xw - Y[i]);
+    }
+    _F /= (double) N;
+    return _F;
+}
+
+double least_square::first_component_oracle_core_dense(double* X, double* Y, size_t N, int given_index, double* weights) const {
     if(weights == NULL) weights = m_weights;
     double _loss = 0, _inner_xw = 0;
-    Data::iterator iter = (*data)(given_index);
-    while(iter.hasNext()) {
-        _inner_xw += weights[iter.getIndex()] * iter.next();
+    for(size_t j = 0; j < MAX_DIM; j ++) {
+        _inner_xw += weights[j] * X[given_index * MAX_DIM + j];
     }
-    _loss = _inner_xw - (*data)[given_index];
+    _loss = _inner_xw - Y[given_index];
+    return 2.0 * _loss;
+}
+
+double least_square::first_component_oracle_core_sparse(double* X, double* Y, size_t* Jc, size_t* Ir
+    , size_t N, int given_index, double* weights) const {
+    if(weights == NULL) weights = m_weights;
+    double _loss = 0, _inner_xw = 0;
+    for(size_t j = Jc[given_index]; j < Jc[given_index + 1]; j ++) {
+        _inner_xw += weights[Ir[j]] * X[j];
+    }
+    _loss = _inner_xw - Y[given_index];
     return 2.0 * _loss;
 }
 

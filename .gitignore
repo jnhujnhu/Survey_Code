@@ -8,6 +8,10 @@
 # Intellij
 /.idea/
 
+# Deprecated Api
+data.cpp
+data.hpp
+
 # dataset
 a*a
 *.dat
@@ -16,8 +20,11 @@ a*a
 
 # test
 *.c
+test.cpp
 small_test.cpp
 small_test
+*.sh
+*.py
 
 # template
 *.cpp.t
