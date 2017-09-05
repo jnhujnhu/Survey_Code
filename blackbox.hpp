@@ -1,6 +1,5 @@
 #ifndef BLACK_BOX_H
 #define BLACK_BOX_H
-#include "data.hpp"
 #include <random>
 
 extern size_t MAX_DIM;

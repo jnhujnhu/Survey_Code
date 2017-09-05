@@ -1,8 +1,8 @@
 clear;
-%load 'real-sim.mat';
+load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
 %load 'a9a.mat';
-load 'Adult.mat';% 0.3232888469179914
+%load 'Adult.mat';% 0.3232888469179914
 %load 'covtype.mat';
 %% Parse Data
 X = [ones(size(X, 1), 1) X];
@@ -14,13 +14,14 @@ sum1 = 1./sqrt(sum(X.^2, 1));
 if abs(sum1(1) - 1) > 10^(-10)
     X = X.*repmat(sum1, Dim, 1);
 end
+clear sum1;
 
 %% Set Params
 algorithm = 'Prox_SVRG'; % SGD / SVRG / Prox_SVRG / Katyusha
 passes = 240;
 % For two-level algorithm, loop stands for outter loop count,
 % for SGD, loop stands for total loop count.
-loop = int64(passes / 3 );
+loop = int64(passes / 3);
 model = 'logistic'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 N/A for Katyusha / SVRG
 init_weight = zeros(Dim, 1);
@@ -44,12 +45,13 @@ fprintf('Time: %f seconds \n', time);
 % fprintf('%.16f \n', stored_SVRG_LL);
 
 tic;
-Mode = 2;
+Mode = 3;
 stored_SVRG_AA = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
 time = toc;
 fprintf('Time: %f seconds \n', time);
 
 tic;
+algorithm = 'Katyusha';
 Mode = 3;
 stored_SVRG_AL = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
 time = toc;
