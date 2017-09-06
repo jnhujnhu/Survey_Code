@@ -110,6 +110,17 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "Ada_SVRG") == 0) {
+            if(regularizer == regularizer::L1)
+                mexErrMsgTxt("405 Ada_SVRG not applicable to L1 regularizer.");
+            if(is_sparse)
+                mexErrMsgTxt("404 Not Done Yet.");
+            else
+                vec_stored_F = grad_desc_dense::Ada_SVRG(X, Y, N, model, iteration_no, Mode, L, step_size,
+                    false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else if(strcmp(_algo, "Katyusha") == 0) {
             if(regularizer == regularizer::L1)
                 mexErrMsgTxt("405 Katyusha not applicable to L1 regularizer.");

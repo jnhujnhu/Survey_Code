@@ -16,6 +16,8 @@ namespace grad_desc_dense {
         , double step_size = 1.0, bool is_store_weight = false, bool is_debug_mode = false, bool is_store_result = false);
     std::vector<double>* SVRG(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no, int Mode = 1, double L = 1.0
         , double step_size = 1.0, bool is_store_weight = false, bool is_debug_mode = false, bool is_store_result = false);
+    std::vector<double>* Ada_SVRG(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no, int Mode = 1, double L = 1.0
+        , double step_size = 1.0, bool is_store_weight = false, bool is_debug_mode = false, bool is_store_result = false);
     std::vector<double>* Katyusha(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no, double L = 1.0, double sigma = 0.0001
         , double step_size = 1.0, bool is_store_weight = false, bool is_debug_mode = false, bool is_store_result = false);
     std::vector<double>* SAGA(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no, double L, double step_size
