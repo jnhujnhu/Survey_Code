@@ -115,17 +115,24 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
         // }
         // For Matlab
         if(is_store_result) {
-            if(!(i % N)) {
+            if(!((i + 1) % N)) {
                 for(size_t j = 0; j < MAX_DIM; j ++) {
-                    if((int)i > last_seen[j] + 1) {
+                    if((int)i > last_seen[j]) {
                         regularizer::proximal_operator(regular, new_weights[j], step_size, lambda
-                            , i - (last_seen[j] + 1), false);
-                        last_seen[j] = i - 1;
+                            , i - last_seen[j], false);
+                        last_seen[j] = i;
                     }
                 }
                 stored_F[(size_t) floor((double) i / N)]
                     = model->zero_oracle_sparse(X, Y, Jc, Ir, N, new_weights);
             }
+        }
+    }
+    // lazy update aggragate
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        if((int)iteration_no > last_seen[i] + 1) {
+            regularizer::proximal_operator(regular, new_weights[i], step_size, lambda
+                , iteration_no - (last_seen[i] + 1), false);
         }
     }
     model->update_model(new_weights);
@@ -592,9 +599,78 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
     return NULL;
 }
 
-std::vector<double>* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
-        , blackbox* model, size_t iteration_no, double L, double step_size, bool is_store_weight
-        , bool is_debug_mode, bool is_store_result) {
-    //TODO:
+double* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
+    , blackbox* model, size_t iteration_no, double L, double step_size, bool is_store_weight
+    , bool is_debug_mode, bool is_store_result) {
+        // Random Generator
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, N - 1);
+    double* stored_F = NULL;
+    size_t passes = (size_t) floor((double) iteration_no / N);
+    int regular = model->get_regularizer();
+    double lambda = model->get_param(0);
+    // For Matlab
+    if(is_store_result)
+        stored_F = new double[passes];
+    double* new_weights = new double[MAX_DIM];
+    double* grad_core_table = new double[N];
+    double* aver_grad = new double[MAX_DIM];
+    int* last_seen = new int[MAX_DIM];
+    memset(aver_grad, 0, MAX_DIM * sizeof(double));
+    for(size_t j = 0; j < MAX_DIM; j ++) last_seen[j] = -1;
+
+    copy_vec(new_weights, model->get_model());
+    // Init Gradient Core Table
+    for(size_t i = 0; i < N; i ++) {
+        grad_core_table[i] = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, i);
+        for(size_t j = Jc[i]; j < Jc[i + 1]; j ++)
+            aver_grad[Ir[j]] += grad_core_table[i] * X[j] / N;
+    }
+    for(size_t i = 0; i < iteration_no; i ++) {
+        int rand_samp = distribution(generator);
+        double core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, new_weights);
+        double past_grad_core = grad_core_table[rand_samp];
+        grad_core_table[rand_samp] = core;
+        for(size_t j = Jc[rand_samp]; j < Jc[rand_samp + 1]; j ++) {
+            size_t index = Ir[j];
+            // lazy update
+            if((int) i > last_seen[index] + 1) {
+                regularizer::proximal_operator(regular, new_weights[index], step_size
+                        , lambda, i - (last_seen[index] + 1), false, -step_size * aver_grad[index]);
+            }
+            aver_grad[index] -= (past_grad_core - core) * X[j] / N;
+            new_weights[index] -= step_size * ((core - past_grad_core)* X[j] + aver_grad[index]);
+            regularizer::proximal_operator(regular, new_weights[index], step_size, lambda);
+            last_seen[index] = i;
+        }
+        // For Matlab
+        if(is_store_result) {
+            if(!((i + 1) % N)) {
+                for(size_t j = 0; j < MAX_DIM; j ++) {
+                    if((int)i > last_seen[j]) {
+                        regularizer::proximal_operator(regular, new_weights[j], step_size, lambda
+                            , i - last_seen[j], false, -step_size * aver_grad[j]);
+                        last_seen[j] = i;
+                    }
+                }
+                stored_F[(size_t) floor((double) i / N)] = model->zero_oracle_sparse(X, Y, Jc, Ir, N, new_weights);
+            }
+        }
+    }
+    // lazy update aggragate
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        if((int)iteration_no > last_seen[i] + 1) {
+            regularizer::proximal_operator(regular, new_weights[i], step_size, lambda
+                , iteration_no - (last_seen[i] + 1), false, -step_size * aver_grad[i]);
+        }
+    }
+    model->update_model(new_weights);
+    delete[] new_weights;
+    delete[] grad_core_table;
+    delete[] aver_grad;
+    // For Matlab
+    if(is_store_result)
+        return stored_F;
     return NULL;
 }

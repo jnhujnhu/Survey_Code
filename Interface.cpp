@@ -88,6 +88,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                     false, false, is_store_result);
             len_stored_F = (size_t) floor((double) iteration_no / N);
         }
+        else if(strcmp(_algo, "SAGA") == 0) {
+            if(is_sparse)
+                stored_F = grad_desc_sparse::SAGA(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+            else
+                stored_F = grad_desc_dense::SAGA(X, Y, N, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+            len_stored_F = (size_t) floor((double) iteration_no / N);
+        }
         else if(strcmp(_algo, "Prox_SVRG") == 0) {
             if(is_sparse)
                 vec_stored_F = grad_desc_sparse::Prox_SVRG(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, step_size,

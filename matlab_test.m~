@@ -40,7 +40,7 @@ tic;
 % Mode 1: last_iter--last_iter, Mode 2: aver_iter--aver_iter, Mode 3: aver_iter--last_iter
 Mode = 1; % For SVRG / Prox_SVRG
 stored_SAGA_s = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
-stored_1 = stored_SAGA_s(3:3:end);
+stored_1 = stored_SAGA_s(3:2:end);
 time = toc;
 fprintf('Time: %f seconds \n', time);
 % fprintf('%.16f \n', stored_1);
@@ -72,7 +72,7 @@ if (is_plot)
     fEvals{2} = x1' * 2;
     fEvals{3} = x1' * 2;
 
-    smallest_F = min([min(stored_1), min(stored_2), min(stored_3)]) - (6e-17);
+    smallest_F = min([min(stored_1), min(stored_2), min(stored_3)]) - (6e-10);
     fVals{1} = stored_1 - smallest_F;
     fVals{2} = stored_2 - smallest_F;
     fVals{3} = stored_3 - smallest_F;

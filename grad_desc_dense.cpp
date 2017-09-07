@@ -4,6 +4,7 @@
 #include <random>
 #include <cmath>
 #include <string.h>
+#include <unistd.h>
 
 extern size_t MAX_DIM;
 
@@ -80,7 +81,6 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
     // For Matlab
     if(is_store_result)
         stored_F = new double[passes];
-    double* sub_grad = new double[MAX_DIM];
     double* new_weights = new double[MAX_DIM];
     copy_vec(new_weights, model->get_model());
     for(size_t i = 0; i < iteration_no; i ++) {
@@ -111,7 +111,6 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
     //Final Output
     // double log_F = log(model->zero_oracle_dense(X, Y, N));
     // printf("SGD: Iteration %zd, log_F: %lf.\n", iteration_no, log_F);
-    delete[] sub_grad;
     delete[] new_weights;
     // For Drawing
     // if(is_store_weight)
@@ -337,20 +336,30 @@ std::vector<double>* grad_desc_dense::Ada_SVRG(double* X, double* Y, size_t N, b
         size_t m0 = 400;
         size_t n = m0;
         size_t loop_no = 0;
-        double c = 1.0;
+        double c = 0.000001 / (1.0 / sqrt(N));
         double grad_norm = 0;
-        while(n <= N) {
+        while(n < N) {
             copy_vec(SVRG_weights, model->get_model());
             if(loop_no != 0)
                 n = (2 * n <= N) ? 2 * n : N;
-            else
-                grad_norm = comp_l2_norm(SVRG_weights);
-
             double Vn = 1.0 / sqrt(n);
             double lambda = c * Vn;
             double step_size_fixed = 0.1 / (L + c * Vn);
             std::uniform_int_distribution<int> distribution(0, n - 1);
 
+            // Comp grad
+            memset(full_grad, 0, MAX_DIM * sizeof(double));
+            for(size_t j = 0; j < n; j ++) {
+                double core = model->first_component_oracle_core_dense(X, Y, N, j);
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    full_grad[k] += (X[j * MAX_DIM + k] * core) / (double) n;
+                }
+            }
+            for(size_t k = 0; k < MAX_DIM; k ++)
+                full_grad[k] += c * Vn * SVRG_weights[k];
+            grad_norm = comp_l2_norm(full_grad);
+            //printf("%zd  n: %zd  grad_norm: %lf  thers: %lf\n", loop_no, n, grad_norm, sqrt(2 * c) * Vn);
+            //sleep(1);
             // OUTTER_LOOP
             while(grad_norm > sqrt(2 * c) * Vn) {
                 double* full_grad_core = new double[n];
@@ -377,12 +386,24 @@ std::vector<double>* grad_desc_dense::Ada_SVRG(double* X, double* Y, size_t N, b
                 // INNER_LOOP END
                 }
                 model->update_model(SVRG_weights);
-                grad_norm = comp_l2_norm(SVRG_weights);
+                // Comp grad
+                memset(full_grad, 0, MAX_DIM * sizeof(double));
+                for(size_t j = 0; j < n; j ++) {
+                    double core = model->first_component_oracle_core_dense(X, Y, N, j);
+                    for(size_t k = 0; k < MAX_DIM; k ++) {
+                        full_grad[k] += (X[j * MAX_DIM + k] * core) / (double) n;
+                    }
+                }
+                for(size_t k = 0; k < MAX_DIM; k ++)
+                    full_grad[k] += c * Vn * SVRG_weights[k];
+                grad_norm = comp_l2_norm(full_grad);
+                //printf("Outter: %lf  Norm: %lf  thers: %lf'\n", model->zero_oracle_dense(X, Y, N), grad_norm, sqrt(2 * c) * Vn);
                 delete[] full_grad_core;
             // OUTTER_LOOP END
             }
             loop_no ++;
         }
+        //printf("Final: %lf\n", log(model->zero_oracle_dense(X, Y, N)));
         // For Matlab
         if(is_store_result) {
             stored_F->push_back(model->zero_oracle_dense(X, Y, N));
@@ -493,8 +514,55 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
     return NULL;
 }
 
-std::vector<double>* grad_desc_dense::SAGA(double* X, double* Y, size_t N, blackbox* model
-    , size_t iteration_no, double L, double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
-    //TODO:
+double* grad_desc_dense::SAGA(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no
+    , double L, double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    // Random Generator
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, N - 1);
+    double* stored_F = NULL;
+    size_t passes = (size_t) floor((double) iteration_no / N);
+    int regular = model->get_regularizer();
+    double lambda = model->get_param(0);
+    // For Matlab
+    if(is_store_result)
+        stored_F = new double[passes];
+    double* new_weights = new double[MAX_DIM];
+    double* grad_core_table = new double[N];
+    double* aver_grad = new double[MAX_DIM];
+    copy_vec(new_weights, model->get_model());
+    memset(aver_grad, 0, MAX_DIM * sizeof(double));
+    // Init Gradient Core Table
+    for(size_t i = 0; i < N; i ++) {
+        grad_core_table[i] = model->first_component_oracle_core_dense(X, Y, N, i);
+        for(size_t j = 0; j < MAX_DIM; j ++)
+            aver_grad[j] += grad_core_table[i] * X[i * MAX_DIM + j] / N;
+    }
+
+    for(size_t i = 0; i < iteration_no; i ++) {
+        int rand_samp = distribution(generator);
+        double core = model->first_component_oracle_core_dense(X, Y, N, rand_samp, new_weights);
+        double past_grad_core = grad_core_table[rand_samp];
+        grad_core_table[rand_samp] = core;
+        for(size_t j = 0; j < MAX_DIM; j ++) {
+            aver_grad[j] -= (past_grad_core - core) * X[rand_samp * MAX_DIM + j] / N;
+            new_weights[j] -= step_size * ((core - past_grad_core)* X[rand_samp * MAX_DIM + j]
+                            + aver_grad[j]);
+            regularizer::proximal_operator(regular, new_weights[j], step_size, lambda);
+        }
+        // For Matlab
+        if(is_store_result) {
+            if(!(i % N)) {
+                stored_F[(size_t) floor((double) i / N)] = model->zero_oracle_dense(X, Y, N, new_weights);
+            }
+        }
+    }
+    model->update_model(new_weights);
+    delete[] new_weights;
+    delete[] grad_core_table;
+    delete[] aver_grad;
+    // For Matlab
+    if(is_store_result)
+        return stored_F;
     return NULL;
 }
