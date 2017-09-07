@@ -79,8 +79,10 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
     // if(is_store_weight)
     //     stored_weights = new double[iteration_no * MAX_DIM];
     // For Matlab
-    if(is_store_result)
-        stored_F = new double[passes];
+    if(is_store_result) {
+        stored_F = new double[passes + 1];
+        stored_F[0] = model->zero_oracle_dense(X, Y, N);
+    }
     double* new_weights = new double[MAX_DIM];
     copy_vec(new_weights, model->get_model());
     for(size_t i = 0; i < iteration_no; i ++) {
@@ -102,8 +104,8 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
         // }
         // For Matlab
         if(is_store_result) {
-            if(!(i % N)) {
-                stored_F[(size_t) floor((double) i / N)] = model->zero_oracle_dense(X, Y, N, new_weights);
+            if(!((i + 1) % N)) {
+                stored_F[(size_t) floor((double) i / N) + 1] = model->zero_oracle_dense(X, Y, N, new_weights);
             }
         }
     }
@@ -137,6 +139,9 @@ std::vector<double>* grad_desc_dense::Prox_SVRG(double* X, double* Y, size_t N, 
     double lambda = model->get_param(0);
     size_t total_iterations = 0;
     copy_vec(inner_weights, model->get_model());
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
     // OUTTER_LOOP
     for(size_t i = 0 ; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
@@ -237,6 +242,9 @@ std::vector<double>* grad_desc_dense::SVRG(double* X, double* Y, size_t N, black
         double m0 = (double) N * 2.0;
         size_t total_iterations = 0;
         copy_vec(inner_weights, model->get_model());
+        // Init Weight Evaluate
+        if(is_store_result)
+            stored_F->push_back(model->zero_oracle_dense(X, Y, N));
         // OUTTER_LOOP
         for(size_t i = 0 ; i < iteration_no; i ++) {
             double* full_grad_core = new double[N];
@@ -336,13 +344,13 @@ std::vector<double>* grad_desc_dense::Ada_SVRG(double* X, double* Y, size_t N, b
         size_t m0 = 400;
         size_t n = m0;
         size_t loop_no = 0;
-        double c = 0.000001 / (1.0 / sqrt(N));
+        double c = 0.000001 / (1.0 / sqrt((double) N));
         double grad_norm = 0;
         while(n < N) {
             copy_vec(SVRG_weights, model->get_model());
             if(loop_no != 0)
                 n = (2 * n <= N) ? 2 * n : N;
-            double Vn = 1.0 / sqrt(n);
+            double Vn = 1.0 / sqrt((double) n);
             double lambda = c * Vn;
             double step_size_fixed = 0.1 / (L + c * Vn);
             std::uniform_int_distribution<int> distribution(0, n - 1);
@@ -358,10 +366,8 @@ std::vector<double>* grad_desc_dense::Ada_SVRG(double* X, double* Y, size_t N, b
             for(size_t k = 0; k < MAX_DIM; k ++)
                 full_grad[k] += c * Vn * SVRG_weights[k];
             grad_norm = comp_l2_norm(full_grad);
-            //printf("%zd  n: %zd  grad_norm: %lf  thers: %lf\n", loop_no, n, grad_norm, sqrt(2 * c) * Vn);
-            //sleep(1);
             // OUTTER_LOOP
-            while(grad_norm > sqrt(2 * c) * Vn) {
+            while(grad_norm > sqrt((double) 2 * c) * Vn) {
                 double* full_grad_core = new double[n];
                 double inner_m = n;
                 memset(full_grad, 0, MAX_DIM * sizeof(double));
@@ -397,7 +403,6 @@ std::vector<double>* grad_desc_dense::Ada_SVRG(double* X, double* Y, size_t N, b
                 for(size_t k = 0; k < MAX_DIM; k ++)
                     full_grad[k] += c * Vn * SVRG_weights[k];
                 grad_norm = comp_l2_norm(full_grad);
-                //printf("Outter: %lf  Norm: %lf  thers: %lf'\n", model->zero_oracle_dense(X, Y, N), grad_norm, sqrt(2 * c) * Vn);
                 delete[] full_grad_core;
             // OUTTER_LOOP END
             }
@@ -444,6 +449,9 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
     copy_vec(y, model->get_model());
     copy_vec(z, model->get_model());
     copy_vec(inner_weights, model->get_model());
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
     // OUTTER LOOP
     for(size_t i = 0; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
@@ -525,8 +533,12 @@ double* grad_desc_dense::SAGA(double* X, double* Y, size_t N, blackbox* model, s
     int regular = model->get_regularizer();
     double lambda = model->get_param(0);
     // For Matlab
-    if(is_store_result)
-        stored_F = new double[passes];
+    if(is_store_result) {
+        stored_F = new double[passes + 2];
+        stored_F[0] = model->zero_oracle_dense(X, Y, N);
+        // Extra Pass for Create Gradient Table
+        stored_F[1] = stored_F[0];
+    }
     double* new_weights = new double[MAX_DIM];
     double* grad_core_table = new double[N];
     double* aver_grad = new double[MAX_DIM];
@@ -553,7 +565,7 @@ double* grad_desc_dense::SAGA(double* X, double* Y, size_t N, blackbox* model, s
         // For Matlab
         if(is_store_result) {
             if(!(i % N)) {
-                stored_F[(size_t) floor((double) i / N)] = model->zero_oracle_dense(X, Y, N, new_weights);
+                stored_F[(size_t) floor((double) i / N) + 2] = model->zero_oracle_dense(X, Y, N, new_weights);
             }
         }
     }

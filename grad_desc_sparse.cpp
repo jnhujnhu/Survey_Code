@@ -83,8 +83,10 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
     // if(is_store_weight)
     //     stored_weights = new double[iteration_no * MAX_DIM];
     // For Matlab
-    if(is_store_result)
-        stored_F = new double[passes];
+    if(is_store_result) {
+        stored_F = new double[passes + 1];
+        stored_F[0] = model->zero_oracle_sparse(X, Y, Jc, Ir, N);
+    }
 
     double* sub_grad = new double[MAX_DIM];
     double* new_weights = new double[MAX_DIM];
@@ -123,7 +125,7 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
                         last_seen[j] = i;
                     }
                 }
-                stored_F[(size_t) floor((double) i / N)]
+                stored_F[(size_t) floor((double) i / N) + 1]
                     = model->zero_oracle_sparse(X, Y, Jc, Ir, N, new_weights);
             }
         }
@@ -168,6 +170,9 @@ std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* J
     double lambda = model->get_param(0);
     size_t total_iterations = 0;
     copy_vec(inner_weights, model->get_model());
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
     // OUTTER_LOOP
     for(size_t i = 0 ; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
@@ -323,6 +328,9 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
         double m0 = (double) N * 2.0;
         size_t total_iterations = 0;
         copy_vec(inner_weights, model->get_model());
+        // Init Weight Evaluate
+        if(is_store_result)
+            stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
         // OUTTER_LOOP
         for(size_t i = 0 ; i < iteration_no; i ++) {
             double* full_grad_core = new double[N];
@@ -503,6 +511,9 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
     copy_vec(y, model->get_model());
     copy_vec(z, model->get_model());
     copy_vec(inner_weights, model->get_model());
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
     // OUTTER LOOP
     for(size_t i = 0; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
@@ -611,8 +622,12 @@ double* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, size_t* Ir, siz
     int regular = model->get_regularizer();
     double lambda = model->get_param(0);
     // For Matlab
-    if(is_store_result)
-        stored_F = new double[passes];
+    if(is_store_result) {
+        stored_F = new double[passes + 2];
+        stored_F[0] = model->zero_oracle_sparse(X, Y, Jc, Ir, N);
+        // Extra Pass for Create Gradient Table
+        stored_F[1] = stored_F[0];
+    }
     double* new_weights = new double[MAX_DIM];
     double* grad_core_table = new double[N];
     double* aver_grad = new double[MAX_DIM];
@@ -654,7 +669,7 @@ double* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, size_t* Ir, siz
                         last_seen[j] = i;
                     }
                 }
-                stored_F[(size_t) floor((double) i / N)] = model->zero_oracle_sparse(X, Y, Jc, Ir, N, new_weights);
+                stored_F[(size_t) floor((double) i / N) + 2] = model->zero_oracle_sparse(X, Y, Jc, Ir, N, new_weights);
             }
         }
     }
