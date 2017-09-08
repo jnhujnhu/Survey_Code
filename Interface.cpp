@@ -90,12 +90,13 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         }
         else if(strcmp(_algo, "SAGA") == 0) {
             if(is_sparse)
-                stored_F = grad_desc_sparse::SAGA(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
+                vec_stored_F = grad_desc_sparse::SAGA(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
                     false, false, is_store_result);
             else
-                stored_F = grad_desc_dense::SAGA(X, Y, N, model, iteration_no, L, step_size,
+                vec_stored_F = grad_desc_dense::SAGA(X, Y, N, model, iteration_no, L, step_size,
                     false, false, is_store_result);
-            len_stored_F = (size_t) floor((double) iteration_no / N) + 2;
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
         }
         else if(strcmp(_algo, "Prox_SVRG") == 0) {
             if(is_sparse)

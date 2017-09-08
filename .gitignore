@@ -11,6 +11,8 @@
 # Deprecated Api
 data.cpp
 data.hpp
+myProcessOptions.m
+prettyPlot.m
 
 # dataset
 a*a

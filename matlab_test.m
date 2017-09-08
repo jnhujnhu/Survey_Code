@@ -25,7 +25,6 @@ lambda = 10^(-6);
 L = (0.25 * max(sum(X.^2, 1)) + lambda); % For logistic regression
 sigma = lambda; % For Katyusha / SAGA, Strong Convex Parameter
 is_sparse = issparse(X);
-is_plot = true;
 Mode = 1;
 fprintf('Model: %s-%s\n', regularizer, model);
 
@@ -38,9 +37,10 @@ tic;
 hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda, L, step_size, loop, is_sparse, Mode, sigma);
 time = toc;
 fprintf('Time: %f seconds \n', time);
-X_SAGA = [0:1:passes]';
+X_SAGA = [0 1 2:3:passes - 2]'; 
 hist1 = [X_SAGA, hist1];
 clear X_SAGA;
+
 
 % SVRG
 % For SVRG / Prox_SVRG
@@ -111,11 +111,11 @@ figure(101)
 set(gcf,'position',[200,100,386,269])
 semilogy(hist1(1:b:end,1), abs(hist1(1:b:end,2) - minval),'b-.^','linewidth',1.6,'markersize',4.5);
 hold on,semilogy(hist2(1:b:end,1), abs(hist2(1:b:end,2) - minval),'g--o','linewidth',1.6,'markersize',4.5);
-hold on,semilogy(hist3(1:b:end,1), abs(hist3(1:b:end,2) - minval),'r-d','linewidth',1.2,'markersize',4.5);
 hold on,semilogy(hist4(1:b:end,1), abs(hist4(1:b:end,2) - minval),'c-+','linewidth',1.2,'markersize',4.5);
+hold on,semilogy(hist3(1:b:end,1), abs(hist3(1:b:end,2) - minval),'r-d','linewidth',1.2,'markersize',4.5);
 hold on,semilogy(hist5(1:b:end,1), abs(hist5(1:b:end,2) - minval),'k-<','linewidth',1.2,'markersize',4.5);
 hold off
 xlabel('Number of effective passes');
 ylabel('Objective minus best');
 axis([0 passes, 1E-12,aa])
-legend('SAGA', 'SVRG', 'Katyusha', 'Prox-SVRG', 'VR-SGD');
+legend('SAGA', 'SVRG', 'Prox-SVRG', 'Katyusha', 'VR-SGD');
