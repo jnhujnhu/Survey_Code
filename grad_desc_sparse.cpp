@@ -74,7 +74,7 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
     double* stored_F = NULL;
     size_t passes = (size_t) floor((double) iteration_no / N);
     int regular = model->get_regularizer();
-    double lambda = model->get_param(0);
+    double* lambda = model->get_params();
     // double* stored_weights = NULL;
     // lazy updates extra array.
     int* last_seen = new int[MAX_DIM];
@@ -167,7 +167,7 @@ std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* J
     //FIXME: Epoch Size(SVRG / SVRG++)
     double m0 = (double) N * 2.0;
     int regular = model->get_regularizer();
-    double lambda = model->get_param(0);
+    double* lambda = model->get_params();
     size_t total_iterations = 0;
     copy_vec(inner_weights, model->get_model());
     // Init Weight Evaluate
@@ -323,7 +323,7 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
         std::vector<double>* stored_F = new std::vector<double>;
         double* inner_weights = new double[MAX_DIM];
         double* full_grad = new double[MAX_DIM];
-        double lambda = model->get_param(0);
+        double* lambda = model->get_params();
         //FIXME: Epoch Size(SVRG / SVRG++)
         double m0 = (double) N * 2.0;
         size_t total_iterations = 0;
@@ -374,12 +374,12 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
                         switch(Mode) {
                             case SVRG_LAST_LAST:
                                 lazy_update_SVRG(inner_weights[index], -step_size * full_grad[index]
-                                    , 1 - step_size * lambda, j - (last_seen[index] + 1), false);
+                                    , 1 - step_size * lambda[0], j - (last_seen[index] + 1), false);
                                 break;
                             case SVRG_AVER_LAST:
                             case SVRG_AVER_AVER:
                                 aver_weights[index] += lazy_update_SVRG(inner_weights[index]
-                                    , -step_size * full_grad[index], 1 - step_size * lambda
+                                    , -step_size * full_grad[index], 1 - step_size * lambda[0]
                                     , j - (last_seen[index] + 1)) / inner_m;
                                 break;
                             default:
@@ -388,7 +388,7 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
                         }
                     }
                     double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
-                             + inner_weights[index]* lambda + full_grad[index];
+                             + inner_weights[index]* lambda[0] + full_grad[index];
                     inner_weights[index] -= step_size * vr_sub_grad;
                     aver_weights[index] += inner_weights[index] / inner_m;
                     last_seen[index] = j;
@@ -410,7 +410,7 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
                     for(size_t j = 0; j < MAX_DIM; j ++) {
                         if(inner_m > last_seen[j] + 1) {
                             lazy_update_SVRG(inner_weights[j], -step_size * full_grad[j]
-                                , 1 - step_size * lambda, inner_m - (last_seen[j] + 1), false);
+                                , 1 - step_size * lambda[0], inner_m - (last_seen[j] + 1), false);
                         }
                     }
                     model->update_model(inner_weights);
@@ -420,7 +420,7 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
                     for(size_t j = 0; j < MAX_DIM; j ++) {
                         if(inner_m > last_seen[j] + 1) {
                             aver_weights[j] += lazy_update_SVRG(inner_weights[j]
-                                , -step_size * full_grad[j], 1 - step_size * lambda
+                                , -step_size * full_grad[j], 1 - step_size * lambda[0]
                                 , inner_m - (last_seen[j] + 1)) / inner_m;
                         }
                     }
@@ -493,7 +493,7 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
     size_t m = 2.0 * N;
     size_t total_iterations = 0;
     int regular = model->get_regularizer();
-    double lambda = model->get_param(0);
+    double* lambda = model->get_params();
     double tau_2 = 0.5, tau_1 = 0.5;
     if(sqrt(sigma * m / (3.0 * L)) < 0.5) tau_1 = sqrt(sigma * m / (3.0 * L));
     double alpha = 1.0 / (tau_1 * 3.0 * L);
@@ -545,7 +545,7 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
                 // lazy update
                 if((int)j > last_seen[index] + 1) {
                     aver_weights[index] += Katyusha_Y_L2_proximal(y[index], z[index]
-                        , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[index]
+                        , tau_1, tau_2, lambda[0], step_size_y, alpha, outter_weights[index]
                         , full_grad[index], j - (last_seen[index] + 1), last_seen[index]
                         , compos_factor, compos_base, compos_pow);
                     regularizer::proximal_operator(regular, z[index], alpha, lambda, j - (last_seen[index] + 1), false
@@ -575,7 +575,7 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
         for(size_t j = 0; j < MAX_DIM; j ++) {
             if(m > last_seen[j] + 1) {
                 aver_weights[j] += Katyusha_Y_L2_proximal(y[j], z[j]
-                    , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[j]
+                    , tau_1, tau_2, lambda[0], step_size_y, alpha, outter_weights[j]
                     , full_grad[j], m - (last_seen[j] + 1), last_seen[j]
                     , compos_factor, compos_base, compos_pow);
                 regularizer::proximal_operator(regular, z[j], alpha, lambda, m - (last_seen[j] + 1), false
@@ -619,7 +619,7 @@ std::vector<double>* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, si
     std::uniform_int_distribution<int> distribution(0, N - 1);
     std::vector<double>* stored_F = new std::vector<double>;
     int regular = model->get_regularizer();
-    double lambda = model->get_param(0);
+    double* lambda = model->get_params();
     // For Matlab
     if(is_store_result) {
         stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
@@ -649,13 +649,15 @@ std::vector<double>* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, si
         grad_core_table[rand_samp] = core;
         for(size_t j = Jc[rand_samp]; j < Jc[rand_samp + 1]; j ++) {
             size_t index = Ir[j];
-            // lazy update
+            // lazy update or lagged update in Schmidt et al.[2016]
             if((int) i > last_seen[index] + 1) {
                 regularizer::proximal_operator(regular, new_weights[index], step_size
                         , lambda, i - (last_seen[index] + 1), false, -step_size * aver_grad[index]);
             }
-            aver_grad[index] -= (past_grad_core - core) * X[j] / N;
+            // Update Weight
             new_weights[index] -= step_size * ((core - past_grad_core)* X[j] + aver_grad[index]);
+            // Update Gradient Table Average
+            aver_grad[index] -= (past_grad_core - core) * X[j] / N;
             regularizer::proximal_operator(regular, new_weights[index], step_size, lambda);
             last_seen[index] = i;
         }

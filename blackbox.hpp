@@ -20,7 +20,7 @@ public:
 
     void set_init_weights(double* init_weights);
     double* get_model() const;
-    double get_param(size_t index) const;
+    double* get_params() const;
     int get_regularizer() const;
     void update_model(double* new_weights);
 protected:

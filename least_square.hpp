@@ -5,6 +5,7 @@
 
 class least_square: public blackbox {
 public:
+    least_square(size_t params_no, double* params, int regular = regularizer::ELASTIC_NET);
     least_square(double param, int regular = regularizer::L2);
     int classify(double* sample) const override;
     double zero_component_oracle_dense(double* X, double* Y, size_t N, double* weights = NULL) const override;

@@ -17,12 +17,12 @@ double blackbox::zero_oracle_sparse(double* X, double* Y, size_t* Jc, size_t* Ir
 
 double blackbox::zero_regularizer_oracle(double* weights) const {
     if(weights == NULL) weights = m_weights;
-    return regularizer::zero_oracle(m_regularizer, *m_params, weights);
+    return regularizer::zero_oracle(m_regularizer, m_params, weights);
 }
 
 void blackbox::first_regularizer_oracle(double* _pR, double* weights) const {
     if(weights == NULL) weights = m_weights;
-    regularizer::first_oracle(m_regularizer, _pR, *m_params, weights);
+    regularizer::first_oracle(m_regularizer, _pR, m_params, weights);
 }
 
 void blackbox::set_init_weights(double* init_weights) {
@@ -37,8 +37,8 @@ int blackbox::get_regularizer() const {
     return m_regularizer;
 }
 
-double blackbox::get_param(size_t index) const {
-    return m_params[index];
+double* blackbox::get_params() const {
+    return m_params;
 }
 
 void blackbox::update_model(double* new_weights) {

@@ -72,7 +72,7 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
     double* stored_F = NULL;
     size_t passes = (size_t) floor((double) iteration_no / N);
     int regular = model->get_regularizer();
-    double lambda = model->get_param(0);
+    double* lambda = model->get_params();
     // double* stored_weights = NULL;
     // For Drawing
     // if(is_store_weight)
@@ -135,7 +135,7 @@ std::vector<double>* grad_desc_dense::Prox_SVRG(double* X, double* Y, size_t N, 
     //FIXME: Epoch Size(SVRG / SVRG++)
     double m0 = (double) N * 2.0;
     int regular = model->get_regularizer();
-    double lambda = model->get_param(0);
+    double* lambda = model->get_params();
     size_t total_iterations = 0;
     copy_vec(inner_weights, model->get_model());
     // Init Weight Evaluate
@@ -236,7 +236,7 @@ std::vector<double>* grad_desc_dense::SVRG(double* X, double* Y, size_t N, black
         std::vector<double>* stored_F = new std::vector<double>;
         double* inner_weights = new double[MAX_DIM];
         double* full_grad = new double[MAX_DIM];
-        double lambda = model->get_param(0);
+        double* lambda = model->get_params();
         //FIXME: Epoch Size(SVRG / SVRG++)
         double m0 = (double) N * 2.0;
         size_t total_iterations = 0;
@@ -279,7 +279,7 @@ std::vector<double>* grad_desc_dense::SVRG(double* X, double* Y, size_t N, black
                 for(size_t k = 0; k < MAX_DIM; k ++) {
                     double val = X[rand_samp * MAX_DIM + k];
                     double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
-                             + inner_weights[k]* lambda + full_grad[k];
+                             + inner_weights[k]* lambda[0] + full_grad[k];
                     inner_weights[k] -= step_size * vr_sub_grad;
                     aver_weights[k] += inner_weights[k] / inner_m;
                 }
@@ -433,7 +433,7 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
     if(sqrt(sigma * m / (3.0 * L)) < 0.5) tau_1 = sqrt(sigma * m / (3.0 * L));
     double alpha = 1.0 / (tau_1 * 3.0 * L);
     int regular = model->get_regularizer();
-    double lambda = model->get_param(0);
+    double* lambda = model->get_params();
     double step_size_y = 1.0 / (3.0 * L);
     double compos_factor = 1.0 + alpha * sigma;
     double compos_base = (pow((double)compos_factor, (double)m) - 1.0) / (alpha * sigma);
@@ -529,7 +529,7 @@ std::vector<double>* grad_desc_dense::SAGA(double* X, double* Y, size_t N, black
     std::uniform_int_distribution<int> distribution(0, N - 1);
     std::vector<double>* stored_F = new std::vector<double>;
     int regular = model->get_regularizer();
-    double lambda = model->get_param(0);
+    double* lambda = model->get_params();
     // For Matlab
     if(is_store_result) {
         stored_F->push_back(model->zero_oracle_dense(X, Y, N));
@@ -555,9 +555,11 @@ std::vector<double>* grad_desc_dense::SAGA(double* X, double* Y, size_t N, black
         double past_grad_core = grad_core_table[rand_samp];
         grad_core_table[rand_samp] = core;
         for(size_t j = 0; j < MAX_DIM; j ++) {
-            aver_grad[j] -= (past_grad_core - core) * X[rand_samp * MAX_DIM + j] / N;
+            // Update Weight
             new_weights[j] -= step_size * ((core - past_grad_core)* X[rand_samp * MAX_DIM + j]
                             + aver_grad[j]);
+            // Update Gradient Table Average
+            aver_grad[j] -= (past_grad_core - core) * X[rand_samp * MAX_DIM + j] / N;
             regularizer::proximal_operator(regular, new_weights[j], step_size, lambda);
         }
         // For Matlab

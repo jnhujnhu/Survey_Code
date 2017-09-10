@@ -2,6 +2,15 @@
 #include <string.h>
 
 extern size_t MAX_DIM;
+
+least_square::least_square(size_t params_no, double* params, int regular) {
+    m_params = new double[params_no];
+    for(size_t i = 0; i < params_no; i ++)
+        m_params[i] = params[i];
+    m_regularizer = regular;
+    m_weights = new double[MAX_DIM];
+}
+
 least_square::least_square(double param, int regular) {
     m_regularizer = regular;
     m_params = new double;

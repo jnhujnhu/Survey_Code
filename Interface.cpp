@@ -1,6 +1,7 @@
 #include <iostream>
 #include "mex.h"
 #include "grad_desc_sparse.hpp"
+#include "grad_desc_async_sparse.hpp"
 #include "grad_desc_dense.hpp"
 #include "svm.hpp"
 #include "regularizer.hpp"
@@ -26,7 +27,8 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             Ir = mxGetIr(prhs[0]);
         }
         double *init_weight = mxGetPr(prhs[5]);
-        double lambda = mxGetScalar(prhs[6]);
+        double lambda1 = mxGetScalar(prhs[6]);
+        double lambda2 = mxGetScalar(prhs[13]);
         double L = mxGetScalar(prhs[7]);
         double sigma = mxGetScalar(prhs[12]);
         double step_size = mxGetScalar(prhs[8]);
@@ -43,24 +45,30 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         if(strcmp(_regul, "L2") == 0) {
             regularizer = regularizer::L2;
         }
-        else if(strcmp(_regul, "L1") == 0){
+        else if(strcmp(_regul, "L1") == 0) {
             regularizer = regularizer::L1;
         }
+        else if(strcmp(_regul, "elastic_net") == 0) {
+            regularizer = regularizer::ELASTIC_NET;
+        }
         else mexErrMsgTxt("400 Unrecognized regularizer.");
+        delete[] _regul;
 
         blackbox* model;
         char* _model = new char[MAX_PARAM_STR_LEN];
+        double lambdas[2] = {lambda1, lambda2};
         mxGetString(prhs[3], _model, MAX_PARAM_STR_LEN);
         if(strcmp(_model, "logistic") == 0) {
-            model = new logistic(lambda, regularizer);
+            model = new logistic(2, lambdas, regularizer);
         }
         else if(strcmp(_model, "least_square") == 0) {
-            model = new least_square(lambda, regularizer);
+            model = new least_square(2, lambdas, regularizer);
         }
         else if(strcmp(_model, "svm") == 0) {
-            model = new svm(lambda, regularizer);
+            model = new svm(2, lambdas, regularizer);
         }
         else mexErrMsgTxt("400 Unrecognized model.");
+        delete[] _model;
         model->set_init_weights(init_weight);
 
         char* _algo = new char[MAX_PARAM_STR_LEN];
@@ -88,6 +96,13 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                     false, false, is_store_result);
             len_stored_F = (size_t) floor((double) iteration_no / N) + 1;
         }
+        else if(strcmp(_algo, "ASAGA") == 0) {
+            if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
+            vec_stored_F = grad_desc_async_sparse::ASAGA(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else if(strcmp(_algo, "SAGA") == 0) {
             if(is_sparse)
                 vec_stored_F = grad_desc_sparse::SAGA(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
@@ -104,6 +119,13 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                     false, false, is_store_result);
             else
                 vec_stored_F = grad_desc_dense::Prox_SVRG(X, Y, N, model, iteration_no, Mode, L, step_size,
+                    false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "Prox_ASVRG") == 0) {
+            if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
+            vec_stored_F = grad_desc_async_sparse::Prox_ASVRG(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, step_size,
                     false, false, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
@@ -144,6 +166,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             len_stored_F = vec_stored_F->size();
         }
         else mexErrMsgTxt("400 Unrecognized algorithm.");
+        delete[] _algo;
 
         if(is_store_result) {
             plhs[0] = mxCreateDoubleMatrix(len_stored_F, 1, mxREAL);
