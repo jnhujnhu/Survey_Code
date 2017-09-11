@@ -248,7 +248,8 @@ std::vector<double>* grad_desc_async_sparse::ASVRG(double* X, double* Y, size_t*
                     size_t index = Ir[k];
                     double val = X[k];
                     double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
-                             + inner_weights[index] * lambda[0] + reweight_diag[index] * full_grad[index];
+                             + (inner_weights[index] + model->get_model()[index] * (reweight_diag[index] - 1) ) * lambda[0]
+                             + reweight_diag[index] * full_grad[index];
                     inner_weights[index] -= step_size * vr_sub_grad;
                     aver_weights[index] += inner_weights[index] / inner_m;
                 }

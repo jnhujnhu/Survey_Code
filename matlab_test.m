@@ -1,8 +1,8 @@
 clear;
-%load 'real-sim.mat';
+load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
 %load 'a9a.mat';
-load 'Adult.mat';
+%load 'Adult.mat';
 %load 'covtype.mat';
 %% Parse Data
 X = [ones(size(X, 1), 1) X];
@@ -92,8 +92,8 @@ fprintf('Model: %s-%s\n', regularizer, model);
 X_SVRG = [0:3:passes]';
 
 % Prox_SVRG
-algorithm = 'Prox_SVRG';
-Mode = 1;
+algorithm = 'SVRG';
+Mode = 3;
 step_size = 1 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
@@ -104,8 +104,8 @@ fprintf('Time: %f seconds \n', time);
 hist1 = [X_SVRG, hist1];
 
 % Prox_ASVRG
-algorithm = 'Prox_ASVRG';
-Mode = 1;
+algorithm = 'ASVRG';
+Mode = 3;
 step_size = 1 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
@@ -151,5 +151,5 @@ if(is_plot)
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
     axis([0 passes, 1E-12,aa])
-    legend('Prox-SVRG', 'Prox-ASVRG');%, 'Prox-SVRG', 'Katyusha', 'VR-SGD');
+    legend('SVRG', 'ASVRG');%, 'Prox-SVRG', 'Katyusha', 'VR-SGD');
 end
