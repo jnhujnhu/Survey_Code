@@ -105,55 +105,105 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
     }
 }
 
+double regularizer::L1_single_step(double& X, double P, double C, bool is_averaged) {
+    double lazy_average = 0.0;
+    X += C;
+    if(X > P)
+        X -= P;
+    else if(X < -P)
+        X += P;
+    else
+        X = 0;
+    if(is_averaged)
+        lazy_average = X;
+    return lazy_average;
+}
+
 // Lazy(Lagged) Update
 double regularizer::proximal_operator(int _regular, double& _prox, double step_size
     , double* lambda, size_t times, bool is_averaged, double additional_constant) {
     double lazy_average = 0.0;
     switch(_regular) {
         case regularizer::L1: {
-            double param = step_size * lambda[1];
-            if(_prox > param - additional_constant){
-                if(additional_constant > param) {
-                    if(is_averaged)
-                        lazy_average = times * _prox - (param - additional_constant)
-                                     * (1 + times) * times / 2.0;
-                    _prox -= times * (param - additional_constant);
+            // New DnC Method
+            double P = step_size * lambda[1];
+            double C = additional_constant;
+            double X = _prox;
+            size_t K = times;
+            if(C >= P || C <= -P) {
+                bool flag = false;
+                // Dual Case
+                if(C < -P) {
+                    flag = true;
+                    C = -C;
+                    X = -_prox;
                 }
-                else {
-                    int _ti = floor((-_prox - additional_constant + param) / (additional_constant - param));
-                    if((int)times <= _ti) {
+                while(X < P - C && K > 0) {
+                    double thres = ceil((-P - C - X) / (P + C));
+                    if(K <= thres) {
                         if(is_averaged)
-                            lazy_average = times * _prox - (param - additional_constant)
-                                         * (1 + times) * times / 2.0;
-                        _prox -= times * (param - additional_constant);
+                            lazy_average = K * X + (P + C) * (1 + K) * K / 2.0;
+                        _prox = X + K * (P + C);
+                        if(flag) {
+                            _prox = -_prox;
+                            lazy_average = -lazy_average;
+                        }
+                        return lazy_average;
                     }
-                    else lazy_average = L1_proximal_loop(_prox, param, times, additional_constant, is_averaged);
-                }
-            }
-            else if(_prox < -param - additional_constant){
-                if(additional_constant < -param) {
-                    if(is_averaged)
-                        lazy_average = times * _prox + (param + additional_constant)
-                                     * (1 + times) * times / 2.0;
-                    _prox += times * (param + additional_constant);
-                }
-                else {
-                    int _ti = floor((-_prox - additional_constant - param) / (additional_constant + param));
-                    if((int)times <= _ti) {
+                    else if(thres > 0.0){
                         if(is_averaged)
-                            lazy_average = times * _prox + (param + additional_constant)
-                                         * (1 + times) * times / 2.0;
-                        _prox += times * (param + additional_constant);
+                            lazy_average += thres * X + (P + C) * (1 + thres) * thres / 2.0;
+                        X += thres * (P + C);
+                        K -= thres;
                     }
-                    else lazy_average = L1_proximal_loop(_prox, param, times, additional_constant, is_averaged);
+                    lazy_average += L1_single_step(X, P, C, is_averaged);
+                    K --;
                 }
+                if(K == 0) {
+                    _prox = X;
+                    if(flag) {
+                        _prox = -_prox;
+                        lazy_average = -lazy_average;
+                    }
+                    return lazy_average;
+                }
+                _prox = X + K * (C - P);
+                if(is_averaged)
+                    lazy_average += K * X + (C - P) * (1 + K) * K / 2.0;
+                if(flag) {
+                    lazy_average = -lazy_average;
+                    _prox = -_prox;
+                }
+                return lazy_average;
             }
             else {
-                if(param >= additional_constant && param >= -additional_constant)
+                double thres_1 = max(ceil((P - C - X) / (C - P)), 0.0);
+                double thres_2 = max(ceil((-P - C - X) / (C + P)), 0.0);
+                if(thres_2 == 0 && thres_1 == 0) {
                     _prox = 0;
-                else lazy_average = L1_proximal_loop(_prox, param, times, additional_constant, is_averaged);
+                    return 0;
+                }
+                else if(K > thres_1 && K > thres_2) {
+                    _prox = 0;
+                    if(thres_1 != 0.0 && is_averaged)
+                        lazy_average = thres_1 * X + (C - P) * (1 + thres_1) * thres_1 / 2.0;
+                    else if(is_averaged)
+                        lazy_average = thres_2 * X + (P + C) * (1 + thres_2) * thres_2 / 2.0;
+                }
+                else {
+                    if(X > 0) {
+                        if(is_averaged)
+                            lazy_average = K * X + (C - P) * (1 + K) * K / 2.0;
+                        _prox = X + K * (C - P);
+                    }
+                    else {
+                        if(is_averaged)
+                            lazy_average = K * X + (P + C) * (1 + K) * K / 2.0;
+                        _prox = X + K * (P + C);
+                    }
+                }
+                return lazy_average;
             }
-            return lazy_average;
             break;
         }
         case regularizer::L2: {

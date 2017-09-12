@@ -10,11 +10,8 @@ extern size_t MAX_DIM;
 double* grad_desc_sparse::GD(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, double L, double step_size
     , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
-    // double* stored_weights = NULL;
     double* stored_F = NULL;
     size_t passes = iteration_no;
-    // if(is_store_weight)
-    //     stored_weights = new double[iteration_no * MAX_DIM];
     if(is_store_result)
         stored_F = new double[passes];
     double* new_weights = new double[MAX_DIM];
@@ -41,12 +38,6 @@ double* grad_desc_sparse::GD(double* X, double* Y, size_t* Jc, size_t* Ir
         }
         else
             printf("GD: Iteration %zd.\n", i);
-        // For Drawing
-        // if(is_store_weight) {
-        //     for(size_t j = 0; j < MAX_DIM; j ++) {
-        //         stored_weights[i * MAX_DIM + j] = new_weights[j];
-        //     }
-        // }
         //For Matlab
         if(is_store_result) {
             stored_F[i] = model->zero_oracle_sparse(X, Y, Jc, Ir, N);
@@ -57,8 +48,6 @@ double* grad_desc_sparse::GD(double* X, double* Y, size_t* Jc, size_t* Ir
     double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
     printf("GD: Iteration %zd, log_F: %lf.\n", iteration_no, log_F);
     delete[] new_weights;
-    // if(is_store_weight)
-    //     return stored_weights;
     if(is_store_result)
         return stored_F;
     return NULL;
@@ -75,13 +64,9 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
     size_t passes = (size_t) floor((double) iteration_no / N);
     int regular = model->get_regularizer();
     double* lambda = model->get_params();
-    // double* stored_weights = NULL;
     // lazy updates extra array.
     int* last_seen = new int[MAX_DIM];
     for(size_t i = 0; i < MAX_DIM; i ++) last_seen[i] = -1;
-    // For Drawing
-    // if(is_store_weight)
-    //     stored_weights = new double[iteration_no * MAX_DIM];
     // For Matlab
     if(is_store_result) {
         stored_F = new double[passes + 1];
@@ -105,16 +90,6 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
             regularizer::proximal_operator(regular, new_weights[index], step_size, lambda);
             last_seen[index] = i;
         }
-        // if(is_debug_mode) {
-        //     double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-        //     printf("SGD: Iteration %zd, log_F: %lf.\n", i, log_F);
-        // }
-        // For Drawing
-        // if(is_store_weight) {
-        //     for(size_t j = 0; j < MAX_DIM; j ++) {
-        //         stored_weights[i * MAX_DIM + j] = new_weights[j];
-        //     }
-        // }
         // For Matlab
         if(is_store_result) {
             if(!((i + 1) % N)) {
@@ -138,15 +113,9 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
         }
     }
     model->update_model(new_weights);
-    //Final Output
-    // double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-    // printf("SGD: Iteration %zd, log_F: %lf.\n", iteration_no, log_F);
     delete[] sub_grad;
     delete[] new_weights;
     delete[] last_seen;
-    // For Drawing
-    // if(is_store_weight)
-    //     return stored_weights;
     // For Matlab
     if(is_store_result)
         return stored_F;
@@ -160,7 +129,6 @@ std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* J
     std::random_device rd;
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<int> distribution(0, N - 1);
-    // std::vector<double>* stored_weights = new std::vector<double>;
     std::vector<double>* stored_F = new std::vector<double>;
     double* inner_weights = new double[MAX_DIM];
     double* full_grad = new double[MAX_DIM];
@@ -235,15 +203,6 @@ std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* J
                 last_seen[index] = j;
             }
             total_iterations ++;
-            // For Drawing
-            // if(is_store_weight) {
-            //     for(size_t k = 0; k < MAX_DIM; k ++)
-            //         stored_weights->push_back(inner_weights[k]);
-            // }
-            // if(is_debug_mode) {
-            //     double log_F = log(model->zero_oracle(data, inner_weights));
-            //     printf("Prox_SVRG: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
-            // }
         }
         // lazy update aggragate
         switch(Mode) {
@@ -277,18 +236,9 @@ std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* J
         delete[] last_seen;
         delete[] aver_weights;
         delete[] full_grad_core;
-        // if(is_debug_mode) {
-        //     double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-        //     printf("Prox_SVRG: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
-        // }
     }
     delete[] full_grad;
     delete[] inner_weights;
-    //Final Output
-    // double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-    // printf("Prox_SVRG: Total Iteration No.: %zd, logF = %lf.\n", total_iterations, log_F);
-    // if(is_store_weight)
-    //     return stored_weights;
     if(is_store_result)
         return stored_F;
     return NULL;
@@ -319,7 +269,6 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
         std::random_device rd;
         std::default_random_engine generator(rd());
         std::uniform_int_distribution<int> distribution(0, N - 1);
-        // std::vector<double>* stored_weights = new std::vector<double>;
         std::vector<double>* stored_F = new std::vector<double>;
         double* inner_weights = new double[MAX_DIM];
         double* full_grad = new double[MAX_DIM];
@@ -394,15 +343,6 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
                     last_seen[index] = j;
                 }
                 total_iterations ++;
-                // For Drawing
-                // if(is_store_weight) {
-                //     for(size_t k = 0; k < MAX_DIM; k ++)
-                //         stored_weights->push_back(inner_weights[k]);
-                // }
-                // if(is_debug_mode) {
-                //     double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N, inner_weights));
-                //     printf("SVRG: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
-                // }
             }
             // lazy update aggragate
             switch(Mode) {
@@ -437,18 +377,9 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
             delete[] last_seen;
             delete[] aver_weights;
             delete[] full_grad_core;
-            // if(is_debug_mode) {
-            //     double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-            //     printf("SVRG: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
-            // }
         }
         delete[] full_grad;
         delete[] inner_weights;
-        //Final Output
-        // double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-        // printf("SVRG: Total Iteration No.: %zd, logF = %lf.\n", total_iterations, log_F);
-        // if(is_store_weight)
-        //     return stored_weights;
         if(is_store_result)
             return stored_F;
         return NULL;
@@ -479,6 +410,20 @@ double Katyusha_Y_L2_proximal(double& _y0, double _z0, double tau_1, double tau_
                  + equal_ratio(compos_factor, compos_pow[times], times) * CONSTETA;
 
     _y0 = pow_eta * (_y0 - MAETA - CONSTETA) + MAETA * pow_A + CONSTETA;
+    return lazy_average;
+}
+
+double Naive_Katyusha_proximal(double& _y0, double& _z0, int regular, double tau_1, double tau_2
+    , double* lambda, double step_size_y, double alpha, double _outterx, double _F
+    , size_t times, int start_iter, double compos_factor, double compos_base, double* compos_pow) {
+    double lazy_average = 0.0;
+    for(size_t i = 0; i < times; i ++) {
+        double temp_y = tau_1 * _z0 + tau_2 * _outterx + (1 - tau_1 - tau_2) * _y0 - step_size_y * _F;
+        _y0 = regularizer::proximal_operator(regular, temp_y, step_size_y, lambda);
+        lazy_average += _y0 * (compos_pow[i + start_iter + 1] / compos_base);
+        double temp_z = _z0 - alpha * _F;
+        _z0 = regularizer::proximal_operator(regular, temp_z, alpha, lambda);
+    }
     return lazy_average;
 }
 
@@ -544,12 +489,19 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
                 double val = X[k];
                 // lazy update
                 if((int)j > last_seen[index] + 1) {
-                    aver_weights[index] += Katyusha_Y_L2_proximal(y[index], z[index]
-                        , tau_1, tau_2, lambda[0], step_size_y, alpha, outter_weights[index]
-                        , full_grad[index], j - (last_seen[index] + 1), last_seen[index]
-                        , compos_factor, compos_base, compos_pow);
-                    regularizer::proximal_operator(regular, z[index], alpha, lambda, j - (last_seen[index] + 1), false
-                         , -alpha * full_grad[index]);
+                    if(regular == regularizer::L2) {
+                        aver_weights[index] += Katyusha_Y_L2_proximal(y[index], z[index]
+                            , tau_1, tau_2, lambda[0], step_size_y, alpha, outter_weights[index]
+                            , full_grad[index], j - (last_seen[index] + 1), last_seen[index]
+                            , compos_factor, compos_base, compos_pow);
+                        regularizer::proximal_operator(regular, z[index], alpha, lambda, j - (last_seen[index] + 1), false
+                             , -alpha * full_grad[index]);
+                    }
+                    else
+                        aver_weights[index] += Naive_Katyusha_proximal(y[index], z[index], regular
+                            , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[index]
+                            , full_grad[index], j - (last_seen[index] + 1), last_seen[index]
+                            , compos_factor, compos_base, compos_pow);
                     inner_weights[index] = tau_1 * z[index] + tau_2 * outter_weights[index]
                                      + (1 - tau_1 - tau_2) * y[index];
                 }
@@ -566,20 +518,23 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
                 last_seen[index] = j;
             }
             total_iterations ++;
-            // if(is_debug_mode) {
-            //     double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N, inner_weights));
-            //     printf("Katyusha: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
-            // }
         }
         // lazy update aggragate
         for(size_t j = 0; j < MAX_DIM; j ++) {
             if(m > last_seen[j] + 1) {
-                aver_weights[j] += Katyusha_Y_L2_proximal(y[j], z[j]
-                    , tau_1, tau_2, lambda[0], step_size_y, alpha, outter_weights[j]
-                    , full_grad[j], m - (last_seen[j] + 1), last_seen[j]
-                    , compos_factor, compos_base, compos_pow);
-                regularizer::proximal_operator(regular, z[j], alpha, lambda, m - (last_seen[j] + 1), false
-                     , -alpha * full_grad[j]);
+                if(regular == regularizer::L2) {
+                    aver_weights[j] += Katyusha_Y_L2_proximal(y[j], z[j]
+                        , tau_1, tau_2, lambda[0], step_size_y, alpha, outter_weights[j]
+                        , full_grad[j], m - (last_seen[j] + 1), last_seen[j]
+                        , compos_factor, compos_base, compos_pow);
+                    regularizer::proximal_operator(regular, z[j], alpha, lambda, m - (last_seen[j] + 1), false
+                         , -alpha * full_grad[j]);
+                }
+                else
+                    aver_weights[j] += Naive_Katyusha_proximal(y[j], z[j], regular
+                        , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[j]
+                        , full_grad[j], m - (last_seen[j] + 1), last_seen[j]
+                        , compos_factor, compos_base, compos_pow);
                 inner_weights[j] = tau_1 * z[j] + tau_2 * outter_weights[j]
                                  + (1 - tau_1 - tau_2) * y[j];
             }
@@ -592,19 +547,12 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
         if(is_store_result) {
             stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
         }
-        // if(is_debug_mode) {
-        //     double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-        //     printf("Katyusha: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
-        // }
     }
     delete[] y;
     delete[] z;
     delete[] inner_weights;
     delete[] full_grad;
     delete[] compos_pow;
-    //Final Output
-    // double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-    // printf("Katyusha: Total Iteration No.: %zd, log_F: %lf.\n", total_iterations, log_F);
     if(is_store_result)
         return stored_F;
     return NULL;

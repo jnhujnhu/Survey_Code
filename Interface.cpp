@@ -131,8 +131,8 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             len_stored_F = vec_stored_F->size();
         }
         else if(strcmp(_algo, "SVRG") == 0) {
-            if(regularizer == regularizer::L1)
-                mexErrMsgTxt("405 SVRG not applicable to L1 regularizer.");
+            if(regularizer != regularizer::L2)
+                mexErrMsgTxt("405 SVRG not applicable to non-differentiable regularizer.");
             if(is_sparse)
                 vec_stored_F = grad_desc_sparse::SVRG(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, step_size,
                     false, false, is_store_result);
@@ -144,8 +144,8 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         }
         else if(strcmp(_algo, "ASVRG") == 0) {
             if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
-            if(regularizer == regularizer::L1)
-                mexErrMsgTxt("405 SVRG not applicable to L1 regularizer.");
+            if(regularizer != regularizer::L2)
+                mexErrMsgTxt("405 SVRG not applicable to non-differentiable regularizer.");
             vec_stored_F = grad_desc_async_sparse::ASVRG(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, step_size,
                 false, false, is_store_result);
             stored_F = &(*vec_stored_F)[0];
@@ -163,8 +163,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             len_stored_F = vec_stored_F->size();
         }
         else if(strcmp(_algo, "Katyusha") == 0) {
-            if(regularizer == regularizer::L1)
-                mexErrMsgTxt("405 Katyusha not applicable to L1 regularizer.");
             if(is_sparse)
                 vec_stored_F = grad_desc_sparse::Katyusha(X, Y, Jc, Ir, N, model, iteration_no, L, sigma, step_size,
                     false, false, is_store_result);

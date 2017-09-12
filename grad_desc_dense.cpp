@@ -9,11 +9,8 @@ extern size_t MAX_DIM;
 
 double* grad_desc_dense::GD(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no
     , double L, double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
-    // double* stored_weights = NULL;
     double* stored_F = NULL;
     size_t passes = iteration_no;
-    // if(is_store_weight)
-    //     stored_weights = new double[iteration_no * MAX_DIM];
     if(is_store_result)
         stored_F = new double[passes];
     double* new_weights = new double[MAX_DIM];
@@ -40,12 +37,6 @@ double* grad_desc_dense::GD(double* X, double* Y, size_t N, blackbox* model, siz
         }
         else
             printf("GD: Iteration %zd.\n", i);
-        // For Drawing
-        // if(is_store_weight) {
-        //     for(size_t j = 0; j < MAX_DIM; j ++) {
-        //         stored_weights[i * MAX_DIM + j] = new_weights[j];
-        //     }
-        // }
         //For Matlab
         if(is_store_result) {
             stored_F[i] = model->zero_oracle_dense(X, Y, N);
@@ -56,8 +47,6 @@ double* grad_desc_dense::GD(double* X, double* Y, size_t N, blackbox* model, siz
     double log_F = log(model->zero_oracle_dense(X, Y, N));
     printf("GD: Iteration %zd, log_F: %lf.\n", iteration_no, log_F);
     delete[] new_weights;
-    // if(is_store_weight)
-    //     return stored_weights;
     if(is_store_result)
         return stored_F;
     return NULL;
@@ -73,10 +62,6 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
     size_t passes = (size_t) floor((double) iteration_no / N);
     int regular = model->get_regularizer();
     double* lambda = model->get_params();
-    // double* stored_weights = NULL;
-    // For Drawing
-    // if(is_store_weight)
-    //     stored_weights = new double[iteration_no * MAX_DIM];
     // For Matlab
     if(is_store_result) {
         stored_F = new double[passes + 1];
@@ -91,16 +76,6 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
             new_weights[j] -= step_size * core * X[rand_samp * MAX_DIM + j];
             regularizer::proximal_operator(regular, new_weights[j], step_size, lambda);
         }
-        // if(is_debug_mode) {
-        //     double log_F = log(model->zero_oracle_dense(X, Y, N));
-        //     printf("SGD: Iteration %zd, log_F: %lf.\n", i, log_F);
-        // }
-        // For Drawing
-        // if(is_store_weight) {
-        //     for(size_t j = 0; j < MAX_DIM; j ++) {
-        //         stored_weights[i * MAX_DIM + j] = new_weights[j];
-        //     }
-        // }
         // For Matlab
         if(is_store_result) {
             if(!((i + 1) % N)) {
@@ -109,13 +84,7 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
         }
     }
     model->update_model(new_weights);
-    //Final Output
-    // double log_F = log(model->zero_oracle_dense(X, Y, N));
-    // printf("SGD: Iteration %zd, log_F: %lf.\n", iteration_no, log_F);
     delete[] new_weights;
-    // For Drawing
-    // if(is_store_weight)
-    //     return stored_weights;
     // For Matlab
     if(is_store_result)
         return stored_F;
@@ -180,15 +149,6 @@ std::vector<double>* grad_desc_dense::Prox_SVRG(double* X, double* Y, size_t N, 
                 aver_weights[k] += regularizer::proximal_operator(regular, inner_weights[k], step_size, lambda) / inner_m;
             }
             total_iterations ++;
-            // For Drawing
-            // if(is_store_weight) {
-            //     for(size_t k = 0; k < MAX_DIM; k ++)
-            //         stored_weights->push_back(inner_weights[k]);
-            // }
-            // if(is_debug_mode) {
-            //     double log_F = log(model->zero_oracle(data, inner_weights));
-            //     printf("Prox_SVRG: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
-            // }
         }
         switch(Mode) {
             case SVRG_LAST_LAST:
@@ -208,18 +168,9 @@ std::vector<double>* grad_desc_dense::Prox_SVRG(double* X, double* Y, size_t N, 
         }
         delete[] aver_weights;
         delete[] full_grad_core;
-        // if(is_debug_mode) {
-        //     double log_F = log(model->zero_oracle_dense(X, Y, N));
-        //     printf("Prox_SVRG: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
-        // }
     }
     delete[] full_grad;
     delete[] inner_weights;
-    //Final Output
-    // double log_F = log(model->zero_oracle_dense(X, Y, N));
-    // printf("Prox_SVRG: Total Iteration No.: %zd, logF = %lf.\n", total_iterations, log_F);
-    // if(is_store_weight)
-    //     return stored_weights;
     if(is_store_result)
         return stored_F;
     return NULL;
@@ -232,7 +183,6 @@ std::vector<double>* grad_desc_dense::SVRG(double* X, double* Y, size_t N, black
         std::random_device rd;
         std::default_random_engine generator(rd());
         std::uniform_int_distribution<int> distribution(0, N - 1);
-        // std::vector<double>* stored_weights = new std::vector<double>;
         std::vector<double>* stored_F = new std::vector<double>;
         double* inner_weights = new double[MAX_DIM];
         double* full_grad = new double[MAX_DIM];
@@ -284,15 +234,6 @@ std::vector<double>* grad_desc_dense::SVRG(double* X, double* Y, size_t N, black
                     aver_weights[k] += inner_weights[k] / inner_m;
                 }
                 total_iterations ++;
-                // For Drawing
-                // if(is_store_weight) {
-                //     for(size_t k = 0; k < MAX_DIM; k ++)
-                //         stored_weights->push_back(inner_weights[k]);
-                // }
-                // if(is_debug_mode) {
-                //     double log_F = log(model->zero_oracle_dense(X, Y, N, inner_weights));
-                //     printf("SVRG: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
-                // }
             }
             switch(Mode) {
                 case SVRG_LAST_LAST:
@@ -312,19 +253,9 @@ std::vector<double>* grad_desc_dense::SVRG(double* X, double* Y, size_t N, black
             }
             delete[] aver_weights;
             delete[] full_grad_core;
-            // if(is_debug_mode) {
-            //     double log_F = log(model->zero_oracle_dense(X, Y, N));
-            //     printf("SVRG: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
-            // }
         }
         delete[] full_grad;
         delete[] inner_weights;
-        //Final Output
-        // double log_F = log(model->zero_oracle_dense(X, Y, N));
-
-        // printf("SVRG: Total Iteration No.: %zd, logF = %lf.\n", total_iterations, log_F);
-        // if(is_store_weight)
-        //     return stored_weights;
         if(is_store_result)
             return stored_F;
         return NULL;
@@ -407,7 +338,6 @@ std::vector<double>* grad_desc_dense::Ada_SVRG(double* X, double* Y, size_t N, b
             }
             loop_no ++;
         }
-        //printf("Final: %lf\n", log(model->zero_oracle_dense(X, Y, N)));
         // For Matlab
         if(is_store_result) {
             stored_F->push_back(model->zero_oracle_dense(X, Y, N));
@@ -490,10 +420,6 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
                                      + (1 - tau_1 - tau_2) * y[k];
             }
             total_iterations ++;
-            // if(is_debug_mode) {
-            //     double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N, inner_weights));
-            //     printf("Katyusha: Outter Iteration: %zd -> Inner Iteration %zd, log_F for inner_weights: %lf.\n", i, j, log_F);
-            // }
         }
         model->update_model(aver_weights);
         delete[] aver_weights;
@@ -503,19 +429,12 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
         if(is_store_result) {
             stored_F->push_back(model->zero_oracle_dense(X, Y, N));
         }
-        // if(is_debug_mode) {
-        //     double log_F = log(model->zero_oracle_dense(X, Y, N));
-        //     printf("Katyusha: Outter Iteration %zd, log_F: %lf.\n", i, log_F);
-        // }
     }
     delete[] y;
     delete[] z;
     delete[] inner_weights;
     delete[] full_grad;
     delete[] compos_pow;
-    //Final Output
-    // double log_F = log(model->zero_oracle_dense(X, Y, N));
-    // printf("Katyusha: Total Iteration No.: %zd, log_F: %lf.\n", total_iterations, log_F);
     if(is_store_result)
         return stored_F;
     return NULL;

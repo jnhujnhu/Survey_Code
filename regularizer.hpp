@@ -11,6 +11,7 @@ namespace regularizer {
     void first_oracle(int _regular, double* _pR, double* lambda, double* weight);
     double L1_proximal_loop(double& _prox, double param, size_t times, double additional_constant
         , bool is_averaged);
+    double L1_single_step(double& X, double P, double C, bool is_averaged);
     double proximal_operator(int _regular, double& _prox, double step_size, double* lambda
             , size_t times, bool is_averaged = false, double additional_constant = 0.0);
     double proximal_operator(int _regular, double& _prox, double step_size, double* lambda);

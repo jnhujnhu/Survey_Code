@@ -44,6 +44,15 @@ inline void copy_vec(double* vec_to, double* vec_from) {
         vec_to[i] = vec_from[i];
 }
 
+inline double max(double a, double b) {
+    return a > b ? a : b;
+}
+
+inline double min(double a, double b) {
+    return a < b ? a : b;
+}
+
+
 inline std::vector<std::string> split(const std::string &s, const std::string &separator) {
     std::vector<std::string> result;
     std::string temp_s = s;
