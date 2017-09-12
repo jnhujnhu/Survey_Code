@@ -30,6 +30,7 @@ double regularizer::zero_oracle(int _regular, double* lambda, double* weight) {
             return 0;
     }
 }
+
 void regularizer::first_oracle(int _regular, double* _pR, double* lambda, double* weight) {
     assert (weight != NULL);
     memset(_pR, 0, MAX_DIM * sizeof(double));
@@ -70,6 +71,50 @@ double regularizer::L1_proximal_loop(double& _prox, double param, size_t times, 
     return lazy_average;
 }
 
+double regularizer::L1_single_step(double& X, double P, double C, bool is_averaged) {
+    double lazy_average = 0.0;
+    X += C;
+    if(X > P)
+        X -= P;
+    else if(X < -P)
+        X += P;
+    else
+        X = 0;
+    if(is_averaged)
+        lazy_average = X;
+    return lazy_average;
+}
+
+double regularizer::EN_proximal_loop(double& X, double P, double Q, size_t times, double C, bool is_averaged) {
+    double lazy_average = 0;
+    for(size_t i = 0; i < times; i ++) {
+        X += C;
+        if(X > P)
+            X = Q * (X - P);
+        else if(X < -P)
+            X = Q * (X + P);
+        else
+            X = 0;
+        if(is_averaged)
+            lazy_average += X;
+    }
+    return lazy_average;
+}
+
+double regularizer::EN_single_step(double& X, double P, double Q, double C, bool is_averaged) {
+    double lazy_average = 0.0;
+    X += C;
+    if(X > P)
+        X = Q * (X - P);
+    else if(X < -P)
+        X = Q * (X + P);
+    else
+        X = 0;
+    if(is_averaged)
+        lazy_average = X;
+    return lazy_average;
+}
+
 double regularizer::proximal_operator(int _regular, double& _prox, double step_size
     , double* lambda) {
     switch(_regular) {
@@ -105,29 +150,14 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
     }
 }
 
-double regularizer::L1_single_step(double& X, double P, double C, bool is_averaged) {
-    double lazy_average = 0.0;
-    X += C;
-    if(X > P)
-        X -= P;
-    else if(X < -P)
-        X += P;
-    else
-        X = 0;
-    if(is_averaged)
-        lazy_average = X;
-    return lazy_average;
-}
-
 // Lazy(Lagged) Update
 double regularizer::proximal_operator(int _regular, double& _prox, double step_size
-    , double* lambda, size_t times, bool is_averaged, double additional_constant) {
+    , double* lambda, size_t times, bool is_averaged, double C) {
     double lazy_average = 0.0;
     switch(_regular) {
         case regularizer::L1: {
             // New DnC Method
             double P = step_size * lambda[1];
-            double C = additional_constant;
             double X = _prox;
             size_t K = times;
             if(C >= P || C <= -P) {
@@ -208,12 +238,12 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
         }
         case regularizer::L2: {
             if(times == 1) {
-                _prox = (_prox + additional_constant) / (1 + step_size * lambda[0]);
+                _prox = (_prox + C) / (1 + step_size * lambda[0]);
                 return _prox;
             }
             double param_1 = step_size * lambda[0];
             double param_2 = pow((double) 1.0 / (1 + param_1), (double) times);
-            double param_3 = additional_constant / param_1;
+            double param_3 = C / param_1;
             if(is_averaged)
                 lazy_average = (_prox - param_3) * (1 - param_2) / param_1 + param_3 * times;
             _prox = _prox * param_2 + param_3 * (1 - param_2);
@@ -221,21 +251,95 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
             break;
         }
         case regularizer::ELASTIC_NET: {
-            // Naive Solution
-            double param_1 = step_size * lambda[1];
-            double param_2 = 1.0 / (1.0 + step_size * lambda[0]);
-            for(size_t i = 0; i < times; i ++) {
-                _prox += additional_constant;
-                if(_prox > param_1)
-                    _prox = param_2 * (_prox - param_1);
-                else if(_prox < - param_1)
-                    _prox = param_2 * (_prox + param_1);
-                else
-                    _prox = 0;
+            // New DnC Method
+            double P = step_size * lambda[1];
+            double Q = 1.0 / (1.0 + step_size * lambda[0]);
+            double X = _prox;
+            size_t K = times;
+
+            double ratio_PCQ = (P + C) * Q / (1 - Q);
+            double ratio_NPCQ = (P - C) * Q / (1 - Q);
+            if(C >= P || C <= -P) {
+                bool flag = false;
+                // Dual Case
+                if(C < -P) {
+                    flag = true;
+                    C = -C;
+                    X = -_prox;
+                }
+                while(X < P - C && K > 0) {
+                    double thres = ceil(log((P + C + ratio_PCQ) / (ratio_PCQ - X)) / log(Q));
+                    if(K <= thres) {
+                        double pow_QK = pow((double) Q, (double) K);
+                        if(is_averaged)
+                            lazy_average = equal_ratio(Q, pow_QK, K) * (X - ratio_PCQ)
+                                         + ratio_PCQ * K;
+                        _prox = pow_QK * X + ratio_PCQ * (1 - pow_QK);
+                        if(flag) {
+                            _prox = -_prox;
+                            lazy_average = -lazy_average;
+                        }
+                        return lazy_average;
+                    }
+                    else if(thres > 0.0){
+                        double pow_Qtrs = pow((double) Q, (double) thres);
+                        if(is_averaged)
+                            lazy_average = equal_ratio(Q, pow_Qtrs, thres) * (X - ratio_PCQ)
+                                         + ratio_PCQ * thres;
+                        X = pow_Qtrs * X + ratio_PCQ * (1 - pow_Qtrs);
+                        K -= thres;
+                    }
+                    lazy_average += EN_single_step(X, P, Q, C, is_averaged);
+                    K --;
+                }
+                if(K == 0) {
+                    _prox = X;
+                    if(flag) {
+                        _prox = -_prox;
+                        lazy_average = -lazy_average;
+                    }
+                    return lazy_average;
+                }
+                // FIXME +C-P
+                double pow_QK = pow((double) Q, (double) K);
+                _prox = pow_QK * X + ratio_PCQ * (1 - pow_QK);
                 if(is_averaged)
-                    lazy_average += _prox;
+                    lazy_average += equal_ratio(Q, pow_QK, K) * (X - ratio_PCQ)
+                                         + ratio_PCQ * K;
+                if(flag) {
+                    lazy_average = -lazy_average;
+                    _prox = -_prox;
+                }
+                return lazy_average;
             }
-            return lazy_average;
+            else {
+                double thres_1 = max(ceil(log((P - C + ratio_NPCQ) / (ratio_NPCQ + X)) / log(Q)), 0.0); // P-C
+                double thres_2 = max(ceil(log((P + C + ratio_PCQ) / (ratio_PCQ - X)) / log(Q)), 0.0); // -P-C
+                if(thres_2 == 0 && thres_1 == 0) {
+                    _prox = 0;
+                    return 0;
+                }
+                else if(K > thres_1 && K > thres_2) {
+                    _prox = 0;
+                    if(thres_1 != 0.0 && is_averaged)
+                        lazy_average = thres_1 * X + (C - P) * (1 + thres_1) * thres_1 / 2.0;
+                    else if(is_averaged)
+                        lazy_average = thres_2 * X + (P + C) * (1 + thres_2) * thres_2 / 2.0;
+                }
+                else {
+                    if(X > 0) {
+                        if(is_averaged)
+                            lazy_average = K * X + (C - P) * (1 + K) * K / 2.0;
+                        _prox = X + K * (C - P);
+                    }
+                    else {
+                        if(is_averaged)
+                            lazy_average = K * X + (P + C) * (1 + K) * K / 2.0;
+                        _prox = X + K * (P + C);
+                    }
+                }
+                return lazy_average;
+            }
             break;
         }
         default:

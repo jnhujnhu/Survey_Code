@@ -10,7 +10,7 @@ extern size_t MAX_DIM;
 std::vector<double>* grad_desc_async_sparse::ASAGA(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
     , blackbox* model, size_t iteration_no, double L, double step_size, bool is_store_weight
     , bool is_debug_mode, bool is_store_result) {
-        // Random Generator
+    // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<int> distribution(0, N - 1);
@@ -150,6 +150,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, si
                 double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
                             + reweight_diag[index] * full_grad[index];
                 inner_weights[index] -= step_size * vr_sub_grad;
+                // FIXME: Average Scheme
                 aver_weights[index] += regularizer::proximal_operator(regular, inner_weights[index]
                     , reweight_diag[index] * step_size, lambda) / inner_m;
             }
