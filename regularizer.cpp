@@ -256,9 +256,6 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
             double Q = 1.0 / (1.0 + step_size * lambda[0]);
             double X = _prox;
             size_t K = times;
-
-            double ratio_PCQ = (P + C) * Q / (1 - Q);
-            double ratio_NPCQ = (P - C) * Q / (1 - Q);
             if(C >= P || C <= -P) {
                 bool flag = false;
                 // Dual Case
@@ -267,6 +264,8 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                     C = -C;
                     X = -_prox;
                 }
+                double ratio_PCQ = (P + C) * Q / (1 - Q);
+                double ratio_NPCQ = (P - C) * Q / (1 - Q);
                 while(X < P - C && K > 0) {
                     double thres = ceil(log((P + C + ratio_PCQ) / (ratio_PCQ - X)) / log(Q));
                     if(K <= thres) {
@@ -300,12 +299,11 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                     }
                     return lazy_average;
                 }
-                // FIXME +C-P
                 double pow_QK = pow((double) Q, (double) K);
-                _prox = pow_QK * X + ratio_PCQ * (1 - pow_QK);
+                _prox = pow_QK * X - ratio_NPCQ * (1 - pow_QK);
                 if(is_averaged)
-                    lazy_average += equal_ratio(Q, pow_QK, K) * (X - ratio_PCQ)
-                                         + ratio_PCQ * K;
+                    lazy_average += equal_ratio(Q, pow_QK, K) * (X + ratio_NPCQ)
+                                         - ratio_NPCQ * K;
                 if(flag) {
                     lazy_average = -lazy_average;
                     _prox = -_prox;
@@ -313,6 +311,8 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                 return lazy_average;
             }
             else {
+                double ratio_PCQ = (P + C) * Q / (1 - Q);
+                double ratio_NPCQ = (P - C) * Q / (1 - Q);
                 double thres_1 = max(ceil(log((P - C + ratio_NPCQ) / (ratio_NPCQ + X)) / log(Q)), 0.0); // P-C
                 double thres_2 = max(ceil(log((P + C + ratio_PCQ) / (ratio_PCQ - X)) / log(Q)), 0.0); // -P-C
                 if(thres_2 == 0 && thres_1 == 0) {
@@ -321,21 +321,28 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                 }
                 else if(K > thres_1 && K > thres_2) {
                     _prox = 0;
+                    double pow_Qtrs1 = pow((double) Q, (double) thres_1);
+                    double pow_Qtrs2 = pow((double) Q, (double) thres_2);
                     if(thres_1 != 0.0 && is_averaged)
-                        lazy_average = thres_1 * X + (C - P) * (1 + thres_1) * thres_1 / 2.0;
+                        lazy_average = equal_ratio(Q, pow_Qtrs1, thres_1) * (X + ratio_NPCQ)
+                                         - ratio_NPCQ * thres_1;
                     else if(is_averaged)
-                        lazy_average = thres_2 * X + (P + C) * (1 + thres_2) * thres_2 / 2.0;
+                        lazy_average = equal_ratio(Q, pow_Qtrs2, thres_2) * (X - ratio_PCQ)
+                                         + ratio_PCQ * thres_2;
                 }
                 else {
+                    double pow_QK = pow((double) Q, (double) K);
                     if(X > 0) {
                         if(is_averaged)
-                            lazy_average = K * X + (C - P) * (1 + K) * K / 2.0;
-                        _prox = X + K * (C - P);
+                            lazy_average = equal_ratio(Q, pow_QK, K) * (X + ratio_NPCQ)
+                                         - ratio_NPCQ * K;
+                        _prox = pow_QK * X - ratio_NPCQ * (1 - pow_QK);
                     }
                     else {
                         if(is_averaged)
-                            lazy_average = K * X + (P + C) * (1 + K) * K / 2.0;
-                        _prox = X + K * (P + C);
+                            lazy_average = equal_ratio(Q, pow_QK, K) * (X - ratio_PCQ)
+                                         + ratio_PCQ * K;
+                        _prox = pow_QK * X + ratio_PCQ * (1 - pow_QK);
                     }
                 }
                 return lazy_average;
