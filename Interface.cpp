@@ -172,6 +172,14 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "A_Katyusha") == 0) {
+            if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
+            else
+                vec_stored_F = grad_desc_async_sparse::A_Katyusha(X, Y, Jc, Ir, N, model, iteration_no, L, sigma, step_size,
+                    false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else mexErrMsgTxt("400 Unrecognized algorithm.");
         delete[] _algo;
 

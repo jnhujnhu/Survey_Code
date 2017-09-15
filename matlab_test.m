@@ -18,7 +18,7 @@ clear sum1;
 %% Set Params
 passes = 240;
 model = 'logistic'; % least_square / svm / logistic
-regularizer = 'elastic_net'; % L1 / L2 / elastic_net
+regularizer = 'L1'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
 lambda1 = 10^(-6); % L2_norm parameter
 lambda2 = 10^(-5); % L1_norm parameter
@@ -28,7 +28,6 @@ is_sparse = issparse(X);
 Mode = 1;
 is_plot = true;
 fprintf('Model: %s-%s\n', regularizer, model);
-
 
 % SAGA
 algorithm = 'SAGA';

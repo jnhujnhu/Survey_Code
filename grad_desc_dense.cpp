@@ -391,6 +391,18 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
         memset(full_grad, 0, MAX_DIM * sizeof(double));
         memset(aver_weights, 0, MAX_DIM * sizeof(double));
         for(size_t i = 0; i < MAX_DIM; i ++) last_seen[i] = -1;
+        switch(regular) {
+            case regularizer::L2:
+            case regularizer::ELASTIC_NET: // Strongly Convex Case
+                break;
+            case regularizer::L1: // Non-Strongly Convex Case
+                tau_1 = 2.0 / ((double) i + 4.0);
+                alpha = 1.0 / (tau_1 * 3.0 * L);
+                break;
+            default:
+                throw std::string("500 Internal Error.");
+                break;
+        }
         // Full Gradient
         for(size_t j = 0; j < N; j ++) {
             full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
@@ -409,11 +421,28 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
             for(size_t k = 0; k < MAX_DIM; k ++) {
                 double val = X[rand_samp * MAX_DIM + k];
                 double katyusha_grad = full_grad[k] + val * (inner_core - full_grad_core[rand_samp]);
+                double prev_z = z[k];
                 z[k] -= alpha * katyusha_grad;
                 regularizer::proximal_operator(regular, z[k], alpha, lambda);
-                y[k] = inner_weights[k] - step_size_y * katyusha_grad;
-                regularizer::proximal_operator(regular, y[k], step_size_y, lambda);
-                aver_weights[k] += compos_pow[j] / compos_base * y[k];
+
+                ////// For Katyusha With Update Option I //////
+                // y[k] = inner_weights[k] - step_size_y * katyusha_grad;
+                // regularizer::proximal_operator(regular, y[k], step_size_y, lambda);
+
+                ////// For Katyusha With Update Option II //////
+                y[k] = inner_weights[k] + tau_1 * (z[k] - prev_z);
+                switch(regular) {
+                    case regularizer::L2:
+                    case regularizer::ELASTIC_NET: // Strongly Convex Case
+                        aver_weights[k] += compos_pow[j] / compos_base * y[k];
+                        break;
+                    case regularizer::L1: // Non-Strongly Convex Case
+                        aver_weights[k] += y[k] / m;
+                        break;
+                    default:
+                        throw std::string("500 Internal Error.");
+                        break;
+                }
                 // (j + 1)th Inner Iteration
                 if(j < m - 1)
                     inner_weights[k] = tau_1 * z[k] + tau_2 * outter_weights[k]
