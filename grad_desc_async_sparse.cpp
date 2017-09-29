@@ -183,7 +183,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, si
     return NULL;
 }
 
-// Only L2
+// Only L2, TODO: Implement Real Asynchronous SVRG (AsySVRG)
 std::vector<double>* grad_desc_async_sparse::ASVRG(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, int Mode, double L
     , double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {

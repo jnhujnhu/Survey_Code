@@ -156,13 +156,14 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
     double lazy_average = 0.0;
     switch(_regular) {
         case regularizer::L1: {
+            // return L1_proximal_loop(_prox, step_size * lambda[1], times, C, is_averaged);
             // New DnC Method
             double P = step_size * lambda[1];
             double X = _prox;
             size_t K = times;
             if(C >= P || C <= -P) {
                 bool flag = false;
-                // Dual Case
+                // Symmetric Case
                 if(C < -P) {
                     flag = true;
                     C = -C;
@@ -174,6 +175,7 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                         if(is_averaged)
                             lazy_average = K * X + (P + C) * (1 + K) * K / 2.0;
                         _prox = X + K * (P + C);
+                        // Symmetric Case
                         if(flag) {
                             _prox = -_prox;
                             lazy_average = -lazy_average;
@@ -191,6 +193,7 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                 }
                 if(K == 0) {
                     _prox = X;
+                    // Symmetric Case
                     if(flag) {
                         _prox = -_prox;
                         lazy_average = -lazy_average;
@@ -200,6 +203,7 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                 _prox = X + K * (C - P);
                 if(is_averaged)
                     lazy_average += K * X + (C - P) * (1 + K) * K / 2.0;
+                // Symmetric Case
                 if(flag) {
                     lazy_average = -lazy_average;
                     _prox = -_prox;
@@ -258,7 +262,7 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
             size_t K = times;
             if(C >= P || C <= -P) {
                 bool flag = false;
-                // Dual Case
+                // Symmetric Case
                 if(C < -P) {
                     flag = true;
                     C = -C;
@@ -274,6 +278,7 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                             lazy_average = equal_ratio(Q, pow_QK, K) * (X - ratio_PCQ)
                                          + ratio_PCQ * K;
                         _prox = pow_QK * X + ratio_PCQ * (1 - pow_QK);
+                        // Symmetric Case
                         if(flag) {
                             _prox = -_prox;
                             lazy_average = -lazy_average;
@@ -293,6 +298,7 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                 }
                 if(K == 0) {
                     _prox = X;
+                    // Symmetric Case
                     if(flag) {
                         _prox = -_prox;
                         lazy_average = -lazy_average;
@@ -304,6 +310,7 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                 if(is_averaged)
                     lazy_average += equal_ratio(Q, pow_QK, K) * (X + ratio_NPCQ)
                                          - ratio_NPCQ * K;
+                // Symmetric Case
                 if(flag) {
                     lazy_average = -lazy_average;
                     _prox = -_prox;

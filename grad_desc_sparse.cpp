@@ -32,21 +32,12 @@ double* grad_desc_sparse::GD(double* X, double* Y, size_t* Jc, size_t* Ir
         }
         delete[] _pR;
         model->update_model(new_weights);
-        if(is_debug_mode) {
-            double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-            printf("GD: Iteration %zd, log_F: %lf.\n", i, log_F);
-        }
-        else
-            printf("GD: Iteration %zd.\n", i);
         //For Matlab
         if(is_store_result) {
             stored_F[i] = model->zero_oracle_sparse(X, Y, Jc, Ir, N);
         }
         delete[] full_grad;
     }
-    //Final Output
-    double log_F = log(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-    printf("GD: Iteration %zd, log_F: %lf.\n", iteration_no, log_F);
     delete[] new_weights;
     if(is_store_result)
         return stored_F;
@@ -255,7 +246,7 @@ std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* J
                 copy_vec(inner_weights, model->get_model());
                 break;
             default:
-                throw std::string("400 Unrecognized Mode.");
+                throw std::string("500 Internal Error.");
                 break;
         }
         // INNER_LOOP
@@ -394,7 +385,7 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
                     copy_vec(inner_weights, model->get_model());
                     break;
                 default:
-                    throw std::string("400 Unrecognized Mode.");
+                    throw std::string("500 Internal Error.");
                     break;
             }
             // INNER_LOOP
@@ -473,7 +464,6 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
 }
 
 ////// For Katyusha With Update Option I //////
-// Magic Code
 double L2_Katyusha_Y_lazy_proximal(double& _y0, double _z0, double tau_1, double tau_2
     , double lambda, double step_size_y, double alpha, double _outterx, double _F
     , size_t times, int start_iter, double compos_factor, double compos_base, double* compos_pow) {
@@ -516,11 +506,6 @@ double Naive_Katyusha_lazy_proximal(double& _y0, double& _z0, int regular, doubl
     return lazy_average;
 }
 
-void d(double a, int i) {
-    if(a != a)
-        throw std::to_string(i);
-}
-
 ///// For Katyusha With Update Option II //////
 double Naive_Katyusha_lazy_proximal2(double& _y0, double& _z0, int regular, double tau_1, double tau_2
     , double* lambda, double step_size_y, double alpha, double _outterx, double _F
@@ -547,6 +532,7 @@ double Naive_Katyusha_lazy_proximal2(double& _y0, double& _z0, int regular, doub
     return lazy_average;
 }
 
+///// For Katyusha With Update Option II //////
 double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
         , double* lambda, size_t times, double tau_1, double tau_2, double step_size_y
         , double alpha, double _outterx, double _F, int start_iter, double compos_factor
@@ -572,7 +558,7 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
             size_t K = times;
             if(C >= P || C <= -P) {
                 bool flag = false;
-                // Dual Case
+                // Symmetric Case
                 if(C < -P) {
                     flag = true;
                     C = -C;
@@ -585,6 +571,7 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
                         weighted_lazy_average_z = X * ER_S + (P + C) * (ER_S * S / (S - 1.0)
                                         - K * S / (S - 1.0));
                         _z = X + K * (P + C);
+                        // Symmetric Case
                         if(flag) {
                             _z = -_z;
                             lazy_average_z = -lazy_average_z;
@@ -611,6 +598,7 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
                 }
                 if(K == 0) {
                     _z = X;
+                    // Symmetric Case
                     if(flag) {
                         _z = -_z;
                         lazy_average_z = -lazy_average_z;
@@ -628,6 +616,7 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
                 double ER_S2 = equal_ratio(S, pow(S, (double) K), (double) K);
                 weighted_lazy_average_z = X * ER_S2 + (C - P) * (ER_S2 * S / (S - 1.0)
                                         - K * S / (S - 1.0));
+                // Symmetric Case
                 if(flag) {
                     lazy_average_z = -lazy_average_z;
                     weighted_lazy_average_z = -weighted_lazy_average_z;
@@ -718,7 +707,11 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
             weighted_lazy_average_z = pow_A * A * equal_ratio(S / A, pow_S / pow_A, times)
                         * (_z - CA) +  equal_ratio(S, pow_S, times) * CA;
             _z = pow_A * (_z - CA) + CA;
-            _y = pow_S * _y + tau_1 * weighted_lazy_average_z / S + tau_2 * _outterx * ER_S / S;
+            // Special Case: 1 - tau_1 - tau_2 = 0
+            if(S == 0)
+                _y = tau_1 * _z + tau_2 * _outterx;
+            else
+                _y = pow_S * _y + tau_1 * weighted_lazy_average_z / S + tau_2 * _outterx * ER_S / S;
             return lazy_average_y + coeff * tau_1 / (1.0 - compos_factor * S)
                     * (lazy_average_z - compos_pow[times] * compos_factor * weighted_lazy_average_z);
             break;
@@ -742,7 +735,7 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
             size_t K = times;
             if(C >= P || C <= -P) {
                 bool flag = false;
-                // Dual Case
+                // Symmetric Case
                 if(C < -P) {
                     flag = true;
                     C = -C;
@@ -759,12 +752,12 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
                         weighted_lazy_average_z = pow_QK * Q * equal_ratio(S / Q, pow_S / pow_QK, K)
                                     * (X - ratio_PCQ) + ratio_PCQ * ER_S;
                         _z = pow_QK * X + ratio_PCQ * (1 - pow_QK);
+                        // Symmetric Case
                         if(flag) {
                             _z = -_z;
                             lazy_average_z = -lazy_average_z;
                             weighted_lazy_average_z = -weighted_lazy_average_z;
                         }
-
                         // Special Case: 1 - tau_1 - tau_2 = 0
                         if(S == 0)
                             _y = tau_1 * _z + tau_2 * _outterx;
@@ -789,6 +782,7 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
                 }
                 if(K == 0) {
                     _z = X;
+                    // Symmetric Case
                     if(flag) {
                         _z = -_z;
                         lazy_average_z = -lazy_average_z;
@@ -810,6 +804,7 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
                             * (X + ratio_NPCQ) - ratio_NPCQ * equal_ratio(compos_factor, compos_pow[K], K);
                 weighted_lazy_average_z = pow_QK * Q * equal_ratio(S / Q, pow_S2 / pow_QK, K)
                             * (X + ratio_NPCQ) - ratio_NPCQ * equal_ratio(S, pow_S2, K);
+                // Symmetric Case
                 if(flag) {
                     lazy_average_z = -lazy_average_z;
                     weighted_lazy_average_z = -weighted_lazy_average_z;

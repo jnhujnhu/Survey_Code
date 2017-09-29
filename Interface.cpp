@@ -77,8 +77,8 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         std::vector<double>* vec_stored_F;
         size_t len_stored_F;
         if(strcmp(_algo, "GD") == 0) {
-            if(regularizer == regularizer::L1)
-                mexErrMsgTxt("405 GD not applicable to L1 regularizer.");
+            if(regularizer != regularizer::L2)
+                mexErrMsgTxt("405 GD not applicable to non-differentiable regularizer.");
             if(is_sparse)
                 stored_F = grad_desc_sparse::GD(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
                     false, false, is_store_result);
@@ -172,6 +172,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "Katyusha_2") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("404 Too Hard.");
+            else
+                vec_stored_F = grad_desc_dense::Katyusha_2(X, Y, N, model, iteration_no, L, sigma, step_size,
+                    false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else if(strcmp(_algo, "A_Katyusha") == 0) {
             if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
             else
@@ -180,6 +189,23 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "SVRG_SD") == 0) {
+            double r = mxGetScalar(prhs[14]);
+            double* SV = mxGetPr(prhs[15]);
+            if(is_sparse)
+                mexErrMsgTxt("404 Not Found.");
+            else
+                vec_stored_F = grad_desc_dense::SVRG_SD(X, Y, N, model, iteration_no, L, step_size,
+                    r, SV, false, false, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        // else if(strcmp(_algo, "SVRGA") == 0) {
+        //     vec_stored_F = grad_desc_dense::SVRGA(X, Y, N, model, iteration_no, Mode, L, step_size,
+        //         false, false, is_store_result);
+        //     stored_F = &(*vec_stored_F)[0];
+        //     len_stored_F = vec_stored_F->size();
+        // }
         else mexErrMsgTxt("400 Unrecognized algorithm.");
         delete[] _algo;
 
