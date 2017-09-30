@@ -26,8 +26,9 @@ namespace grad_desc_dense {
         , double step_size = 1.0, bool is_store_weight = false, bool is_debug_mode = false, bool is_store_result = false);
     // Only L2. Non-Prox Update. Using Update Option I.
     std::vector<double>* Katyusha_2(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no, double L = 1.0, double sigma = 0.0001
-            , double step_size = 1.0, bool is_store_weight = false, bool is_debug_mode = false, bool is_store_result = false);
+        , double step_size = 1.0, bool is_store_weight = false, bool is_debug_mode = false, bool is_store_result = false);
 
+    // Only Ridge Regression
     std::vector<double>* SVRG_SD(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no, double L, double step_size, double r, double* SV
         , bool is_store_weight = false, bool is_debug_mode = false, bool is_store_result = false);
 

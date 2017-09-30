@@ -1,26 +1,26 @@
 clear;
 %load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
-load 'Adult.mat';
+load 'a9a.mat';
 %load 'covtype.mat';
 %% Parse Data
-X = [ones(size(X, 1), 1) X];
+% X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
-X = full(X');
+X = X';
 
 %% Normalize Data
-sum1 = 1./sqrt(sum(X.^2, 1));
-if abs(sum1(1) - 1) > 10^(-10)
-    X = X.*repmat(sum1, Dim, 1);
-end
-clear sum1;
+% sum1 = 1./sqrt(sum(X.^2, 1));
+% if abs(sum1(1) - 1) > 10^(-10)
+%     X = X.*repmat(sum1, Dim, 1);
+% end
+% clear sum1;
 
 %% Set Params
-passes = 240;
+passes = 300;
 model = 'least_square'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 / L2 / elastic_net
-init_weight = repmat(1, Dim, 1); % Initial weight
-lambda1 = 10^(-5); % L2_norm / elastic_net
+init_weight = repmat(0, Dim, 1); % Initial weight
+lambda1 = 10^(-4); % L2_norm / elastic_net
 lambda2 = 10^(-5); % L1_norm / elastic_net
 L = (max(sum(X.^2, 1)) + lambda1); % For logistic regression
 sigma = lambda1; % For Katyusha / SAGA, Strong Convex Parameter
@@ -48,8 +48,8 @@ fprintf('Model: %s-%s\n', regularizer, model);
 % % Mode 3: aver_iter--last_iter  ----VR-SGD
 %
 % % SVRG
-algorithm = 'Prox_SVRG';
-Mode = 2;
+algorithm = 'SVRG';
+Mode = 1;
 step_size = 1 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
@@ -90,11 +90,15 @@ algorithm = 'SVRG_SD';
 step_size = 1 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
-% for partial SVD
+% for partial SVD(in dense case)
 r = Dim;
+A = 0;
 tic;
-[U, S, V] = svds(X', r);
-A = (S * V')';
+% SVD for dense case
+if(~is_sparse)
+    [U, S, V] = svds(X', r);
+    A = (S * V')';
+end
 hist5 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, r, A);
 time = toc;
 fprintf('Time: %f seconds \n', time);
@@ -109,8 +113,8 @@ if(is_plot)
     % aa3 = min(hist3(:, 2));
     % aa4 = min(hist4(:, 2));
     aa5 = min(hist5(:, 2));
-    minval = min([aa2, aa5]) - 2e-16;
-    aa = max(max([hist5(:, 2)])) - minval;
+    minval = min([aa2]) - 2e-16;
+    aa = max(max([hist2(:, 2)])) - minval;
     b = 1;
 
     figure(101);
@@ -124,5 +128,5 @@ if(is_plot)
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
     axis([0 passes, 1E-12,aa]);
-    legend('SVRG-SD', 'Prox-SVRG'); %, 'SVRG', 'Prox-SVRG', 'Katyusha', 'SVRG-SD');
+    legend('SVRG-SD', 'SVRG'); %, 'SVRG', 'Prox-SVRG', 'Katyusha', 'SVRG-SD');
 end

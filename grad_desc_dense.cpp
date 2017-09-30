@@ -622,7 +622,7 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
     double* y = new double[MAX_DIM];
     double* x_hat = new double[MAX_DIM];
     // Momentum Constant
-    double sigma = 0.5;
+    double sigma = 0.33333;
     // Trade off parameter
     double delta = 0.1;
     double zeta = delta * step_size / (1.0 - L * step_size);
@@ -650,9 +650,9 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
         double* full_grad_core = new double[N];
         // Average Iterates
         double* aver_weights = new double[MAX_DIM];
-        double* prev_x = new double[MAX_DIM];
+        double* prev_x_hat = new double[MAX_DIM];
         double inner_m = m0;
-        memset(prev_x, 0, MAX_DIM * sizeof(double));
+        memset(prev_x_hat, 0, MAX_DIM * sizeof(double));
         memset(aver_weights, 0, MAX_DIM * sizeof(double));
         memset(full_grad, 0, MAX_DIM * sizeof(double));
 
@@ -670,8 +670,6 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
                 throw std::string("Error2");
                 break;
         }
-        for(size_t k = 0; k < MAX_DIM; k ++)
-            aver_weights[k] = x_hat[k] / (double) inner_m;
         // Full Gradient
         for(size_t j = 0; j < N; j ++) {
             full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
@@ -686,7 +684,7 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
                 , rand_samp, x);
             // Compute Theta_k (every 2000 iter)
             double theta = 1.0;
-            if(!i % 2000) {
+            if(!(i + 1) % 2000) {
                 switch(regular) {
                     case regularizer::L2: {
                         double bAx = 0.0, square_p = 0.0, square_x = 0.0;
@@ -723,22 +721,11 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
                 double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[k];
                 y[k] = x[k] - step_size * vr_sub_grad;
                 regularizer::proximal_operator(regular, y[k], step_size, lambda);
-                if(j == 0) {
-                    prev_x[k] = x[k];
-                    double temp_x_hat = theta * x[k];
-                    x[k] = y[k] + (1.0 - sigma) * (theta * x[k] - x_hat[k]);
-                    x_hat[k] = temp_x_hat;
-                    aver_weights[k] += x_hat[k] / (double) inner_m;
-                }
-                else {
-                    // store x
-                    double temp_xk = x[k];
-                    x[k] = y[k] + (1.0 - sigma) * theta * (x[k] - prev_x[k]);
-                    x_hat[k] = theta * x[k];
-                    aver_weights[k] += x_hat[k] / (double) inner_m;
-                    // store prev_x
-                    prev_x[k] = temp_xk;
-                }
+                // Update x
+                prev_x_hat[k] = x_hat[k];
+                x_hat[k] = theta * x[k];
+                x[k] = y[k] + (1.0 - sigma) * (x_hat[k] - prev_x_hat[k]);
+                aver_weights[k] += x_hat[k] / (double) inner_m;
             }
             total_iterations ++;
         }
@@ -754,6 +741,7 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
         }
         delete[] aver_weights;
         delete[] full_grad_core;
+        delete[] prev_x_hat;
     }
     delete[] full_grad;
     delete[] x;

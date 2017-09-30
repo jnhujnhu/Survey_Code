@@ -1,6 +1,7 @@
 #include <iostream>
 #include "mex.h"
 #include "grad_desc_sparse.hpp"
+#include "grad_desc_sd_sparse.hpp"
 #include "grad_desc_async_sparse.hpp"
 #include "grad_desc_dense.hpp"
 #include "svm.hpp"
@@ -190,13 +191,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             len_stored_F = vec_stored_F->size();
         }
         else if(strcmp(_algo, "SVRG_SD") == 0) {
-            double r = mxGetScalar(prhs[14]);
-            double* SV = mxGetPr(prhs[15]);
             if(is_sparse)
-                mexErrMsgTxt("404 Not Found.");
-            else
+                vec_stored_F = grad_desc_sd_sparse::SVRG_SD(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
+                    false, false, is_store_result);
+            else {
+                double r = mxGetScalar(prhs[14]);
+                double* SV = mxGetPr(prhs[15]);
                 vec_stored_F = grad_desc_dense::SVRG_SD(X, Y, N, model, iteration_no, L, step_size,
                     r, SV, false, false, is_store_result);
+            }
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
