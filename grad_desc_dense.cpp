@@ -622,7 +622,7 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
     double* y = new double[MAX_DIM];
     double* x_hat = new double[MAX_DIM];
     // Momentum Constant
-    double sigma = 0.33333;
+    double sigma = 1.0 / 3.0;
     // Trade off parameter
     double delta = 0.1;
     double zeta = delta * step_size / (1.0 - L * step_size);
@@ -684,38 +684,38 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
                 , rand_samp, x);
             // Compute Theta_k (every 2000 iter)
             double theta = 1.0;
-            if(!(i + 1) % 2000) {
-                switch(regular) {
-                    case regularizer::L2: {
-                        double bAx = 0.0, square_p = 0.0, square_x = 0.0;
-                        for(size_t k = 0; k < MAX_DIM; k ++) {
-                            bAx += yX[k] * x[k];
-                            double difference = (inner_core - full_grad_core[rand_samp])
-                                    * X[rand_samp * MAX_DIM + k];
-                            square_p += difference * difference;
-                            square_x += x[k] * x[k];
-                        }
-                        bAx /= (double) N;
-                        double SVx = 0.0;
-                        for(size_t k = 0; k < r; k ++) {
-                            double SVd = 0.0;
-                            for(size_t l = 0; l < MAX_DIM; l ++)
-                                SVd += SV[k * MAX_DIM + l] * x[l];
-                            SVx += SVd * SVd;
-                        }
-                        theta = (bAx + zeta * square_p)
-                            / (SVx / N + zeta * square_p + lambda[0] * square_x);
-                        break;
-                    }
-                    case regularizer::L1: {
-                        throw std::string("Not Done.");
-                        break;
-                    }
-                    default:
-                        throw std::string("Error");
-                        break;
-                }
-            }
+            // if(!(i + 1) % 2000) {
+            //     switch(regular) {
+            //         case regularizer::L2: {
+            //             double bAx = 0.0, square_p = 0.0, square_x = 0.0;
+            //             for(size_t k = 0; k < MAX_DIM; k ++) {
+            //                 bAx += yX[k] * x[k];
+            //                 double difference = (inner_core - full_grad_core[rand_samp])
+            //                         * X[rand_samp * MAX_DIM + k];
+            //                 square_p += difference * difference;
+            //                 square_x += x[k] * x[k];
+            //             }
+            //             bAx /= (double) N;
+            //             double SVx = 0.0;
+            //             for(size_t k = 0; k < r; k ++) {
+            //                 double SVd = 0.0;
+            //                 for(size_t l = 0; l < MAX_DIM; l ++)
+            //                     SVd += SV[k * MAX_DIM + l] * x[l];
+            //                 SVx += SVd * SVd;
+            //             }
+            //             theta = (bAx + zeta * square_p)
+            //                 / (SVx / N + zeta * square_p + lambda[0] * square_x);
+            //             break;
+            //         }
+            //         case regularizer::L1: {
+            //             throw std::string("Not Done.");
+            //             break;
+            //         }
+            //         default:
+            //             throw std::string("Error");
+            //             break;
+            //     }
+            // }
             for(size_t k = 0; k < MAX_DIM; k ++) {
                 double val = X[rand_samp * MAX_DIM + k];
                 double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[k];

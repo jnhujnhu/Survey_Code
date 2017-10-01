@@ -1,4 +1,4 @@
-clear;
+clear;mex_all;
 %load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
 load 'a9a.mat';
@@ -22,7 +22,7 @@ regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
 lambda1 = 10^(-4); % L2_norm / elastic_net
 lambda2 = 10^(-5); % L1_norm / elastic_net
-L = (max(sum(X.^2, 1)) + lambda1); % For logistic regression
+L = (0.25 * max(sum(X.^2, 1)) + lambda1); % For logistic regression
 sigma = lambda1; % For Katyusha / SAGA, Strong Convex Parameter
 is_sparse = issparse(X);
 Mode = 1;
@@ -127,6 +127,6 @@ if(is_plot)
     hold off;
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
-    axis([0 passes, 1E-12,aa]);
+    axis([0 50, 1E-12,aa]);
     legend('SVRG-SD', 'SVRG'); %, 'SVRG', 'Prox-SVRG', 'Katyusha', 'SVRG-SD');
 end

@@ -14,19 +14,23 @@ void d(double a, std::string s) {
     }
 }
 
-double Naive_SD_lazy_update(double& x, double k, double A, double B, double a, double x0, double x1) {
-    double prev_x = x0, aver = 0;
+double Naive_SD_lazy_update(double& x, size_t k, double A, double B, double a, double& x0, double& x1) {
+    double aver = 0;
     for(size_t i = 0; i < k; i ++) {
-        x = A * (x + a) + B * (prev_x + a) - a;
-        aver += x;
+        x0 = x1;
+        x1 = x;
+        x = A * (x1 + a) + B * (x0 + a) - a;
+        aver += x1;
     }
-    return x;
+    return aver;
 }
 
-double SD_lazy_update(double& x, double k, double A, double B, double a, double x0, double x1) {
-    // Test
-    return Naive_SD_lazy_update(x, k, A, B, a, x0, x1);
+double SD_lazy_update(double& x, size_t k, double A, double B, double a, double& x0, double& x1) {
+    if(k <= 4)
+        return Naive_SD_lazy_update(x, k, A, B, a, x0, x1);
 
+    x0 = x1;
+    x1 = x;
     std::complex<double> y0(x0 + a);
     std::complex<double> y1(x1 + a);
     std::complex<double> root_term(A * A + 4 * B);
@@ -37,11 +41,18 @@ double SD_lazy_update(double& x, double k, double A, double B, double a, double 
     std::complex<double> s1 = (y0 * root2 - y1) / (root2 - root1);
     std::complex<double> s2 = (y1 - y0 * root1) / (root2 - root1);
 
-    x = std::real(s1 * pow(root1, k + 1) + s2 * pow(root2, k + 1)) - a;
-    return std::real(s1 * root1 * root1 / (std::complex<double>(1) - root1)
-            * (std::complex<double>(1) - pow(root1, k))
+    std::complex<double> rk1 = pow(root1, k - 1), rk2 = pow(root2, k - 1);
+    double aver = std::real(s1 * root1 * root1 / (std::complex<double>(1) - root1)
+            * (std::complex<double>(1) - rk1)
              + s2 * root2 * root2 / (std::complex<double>(1) - root2)
-            * (std::complex<double>(1) - pow(root2, k))) - k * a;
+            * (std::complex<double>(1) - rk2)) - (k - 1) * a + x1;
+    x0 = std::real(s1 * rk1 + s2 * rk2);
+    x1 = std::real(s1 * rk1 * root1 + s2 * rk2 * root2);
+    x =  A * x1 + B * x0 - a;
+    x0 -= a;
+    x1 -= a;
+
+    return aver;
 }
 
 std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model
@@ -56,7 +67,7 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
     double* x_hat = new double[MAX_DIM];
     double* full_grad = new double[MAX_DIM];
     // Momentum Constant
-    double sigma = 0.333333;
+    double sigma = 1.0 / 3.0;
     // Trade off parameter
     double delta = 0.1;
     double zeta = delta * step_size / (1.0 - L * step_size);
@@ -80,7 +91,7 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
     copy_vec(y, model->get_model());
     // Init Weight Evaluate
     if(is_store_result)
-        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+        stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
     // OUTTER_LOOP
     for(size_t i = 0 ; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
@@ -126,8 +137,6 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
             //     // Lazy Aggragate to Keep x Up-to-date.
             //     for(size_t k = 0; k < MAX_DIM; k ++) {
             //         if((int)j > last_seen[k]) {
-            //             prev_x_hat[index] = x_hat[index];
-            //             x_hat[index] = theta * x[index];
             //             aver_weights[k] += SD_lazy_update(x[k], j - last_seen[k]
             //                 , A, B, full_grad[k] / lambda[0], prev_x_hat[k], x_hat[k]) / inner_m;
             //             last_seen[k] = j;
@@ -171,10 +180,8 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
                 size_t index = Ir[k];
                 double val = X[k];
 
-                if((int)j > last_seen[index] + 1){// && (i + 1) % 2000) {
+                if((int)j > last_seen[index] + 1) {
                     // Lazy Update
-                    prev_x_hat[index] = x_hat[index];
-                    x_hat[index] = theta * x[index];
                     aver_weights[index] += SD_lazy_update(x[index], j - (last_seen[index] + 1)
                         , A, B, full_grad[index] / lambda[0], prev_x_hat[index], x_hat[index]) / inner_m;
                 }
@@ -194,8 +201,6 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
         for(size_t j = 0; j < MAX_DIM; j ++) {
             if(inner_m > last_seen[j] + 1) {
                 // Lazy Aggragate
-                prev_x_hat[j] = x_hat[j];
-                x_hat[j] = x[j];
                 aver_weights[j] += SD_lazy_update(x[j], inner_m - (last_seen[j] + 1)
                     , A, B, full_grad[j] / lambda[0], prev_x_hat[j], x_hat[j]) / inner_m;
             }
@@ -208,7 +213,7 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
         }
         // For Matlab (per m/n passes)
         if(is_store_result) {
-            stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+            stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
         }
         delete[] aver_weights;
         delete[] full_grad_core;
