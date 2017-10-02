@@ -18,5 +18,7 @@ namespace regularizer {
     double proximal_operator(int _regular, double& _prox, double step_size, double* lambda
             , size_t times, bool is_averaged = false, double additional_constant = 0.0);
     double proximal_operator(int _regular, double& _prox, double step_size, double* lambda);
+    double Naive_Momentum_L2_lazy_update(double& x, size_t k, double A, double B, double a, double& x0, double& x1);
+    double Momentum_L2_lazy_update(double& x, size_t k, double A, double B, double a, double& x0, double& x1);
 }
 #endif

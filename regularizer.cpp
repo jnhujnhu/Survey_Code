@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <complex>
 #include "regularizer.hpp"
 #include "utils.hpp"
 
@@ -360,4 +361,43 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
             return 0.0;
             break;
     }
+}
+
+double regularizer::Naive_Momentum_L2_lazy_update(double& x, size_t k, double A, double B, double a, double& x0, double& x1) {
+    double aver = 0;
+    for(size_t i = 0; i < k; i ++) {
+        x0 = x1;
+        x1 = x;
+        x = A * (x1 + a) + B * (x0 + a) - a;
+        aver += x1;
+    }
+    return aver;
+}
+
+double regularizer::Momentum_L2_lazy_update(double& x, size_t k, double A, double B, double a, double& x0, double& x1) {
+    if(k <= 4)
+        return Naive_Momentum_L2_lazy_update(x, k, A, B, a, x0, x1);
+    x0 = x1;
+    x1 = x;
+    std::complex<double> y0(x0 + a);
+    std::complex<double> y1(x1 + a);
+    std::complex<double> root_term(A * A + 4 * B);
+    std::complex<double> root1 = (std::complex<double>(A) + sqrt(root_term))
+        / std::complex<double>(2.0);
+    std::complex<double> root2 = (std::complex<double>(A) - sqrt(root_term))
+        / std::complex<double>(2.0);
+    std::complex<double> s1 = (y0 * root2 - y1) / (root2 - root1);
+    std::complex<double> s2 = (y1 - y0 * root1) / (root2 - root1);
+
+    std::complex<double> rk1 = pow(root1, k - 1), rk2 = pow(root2, k - 1);
+    double aver = std::real(s1 * root1 * root1 / (std::complex<double>(1) - root1)
+            * (std::complex<double>(1) - rk1)
+             + s2 * root2 * root2 / (std::complex<double>(1) - root2)
+            * (std::complex<double>(1) - rk2)) - (k - 1) * a + x1;
+    x0 = std::real(s1 * rk1 + s2 * rk2);
+    x1 = std::real(s1 * rk1 * root1 + s2 * rk2 * root2);
+    x =  A * x1 + B * x0 - a;
+    x0 -= a;
+    x1 -= a;
+    return aver;
 }

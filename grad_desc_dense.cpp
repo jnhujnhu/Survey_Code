@@ -439,11 +439,8 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
         double* full_grad_core = new double[N];
         double* outter_weights = (model->get_model());
         double* aver_weights = new double[MAX_DIM];
-        // lazy update extra param
-        double* last_seen = new double[MAX_DIM];
         memset(full_grad, 0, MAX_DIM * sizeof(double));
         memset(aver_weights, 0, MAX_DIM * sizeof(double));
-        for(size_t i = 0; i < MAX_DIM; i ++) last_seen[i] = -1;
         switch(regular) {
             case regularizer::L2:
             case regularizer::ELASTIC_NET: // Strongly Convex Case
@@ -482,6 +479,7 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
                 // regularizer::proximal_operator(regular, y[k], step_size_y, lambda);
                 ////// For Katyusha With Update Option II //////
                 y[k] = inner_weights[k] + tau_1 * (z[k] - prev_z);
+
                 switch(regular) {
                     case regularizer::L2:
                     case regularizer::ELASTIC_NET: // Strongly Convex Case
@@ -504,7 +502,6 @@ std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, b
         model->update_model(aver_weights);
         delete[] aver_weights;
         delete[] full_grad_core;
-        delete[] last_seen;
         // For Matlab
         if(is_store_result) {
             stored_F->push_back(model->zero_oracle_dense(X, Y, N));
@@ -556,11 +553,8 @@ std::vector<double>* grad_desc_dense::Katyusha_2(double* X, double* Y, size_t N,
         double* full_grad_core = new double[N];
         double* outter_weights = (model->get_model());
         double* aver_weights = new double[MAX_DIM];
-        // lazy update extra param
-        double* last_seen = new double[MAX_DIM];
         memset(full_grad, 0, MAX_DIM * sizeof(double));
         memset(aver_weights, 0, MAX_DIM * sizeof(double));
-        for(size_t i = 0; i < MAX_DIM; i ++) last_seen[i] = -1;
         // Full Gradient
         for(size_t j = 0; j < N; j ++) {
             full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
@@ -594,7 +588,6 @@ std::vector<double>* grad_desc_dense::Katyusha_2(double* X, double* Y, size_t N,
         model->update_model(aver_weights);
         delete[] aver_weights;
         delete[] full_grad_core;
-        delete[] last_seen;
         // For Matlab
         if(is_store_result) {
             stored_F->push_back(model->zero_oracle_dense(X, Y, N));
@@ -632,7 +625,7 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
     double* lambda = model->get_params();
     size_t total_iterations = 0;
     // Compute (y^T)X
-    double* yX = new double [MAX_DIM];
+    double* yX = new double[MAX_DIM];
     memset(yX, 0, MAX_DIM * sizeof(double));
     for(size_t i = 0; i < MAX_DIM; i ++) {
         for(size_t j = 0; j < N; j ++){
@@ -659,8 +652,9 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
         switch(regular) {
             case regularizer::L2:
             case regularizer::ELASTIC_NET:
-                copy_vec(x, model->get_model());
-                copy_vec(x_hat, model->get_model());
+                // FIXME: Update Options.
+                // copy_vec(x, model->get_model());
+                copy_vec(x_hat, x);
                 break;
             case regularizer::L1:
                 copy_vec(x, y);
@@ -683,49 +677,60 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
             double inner_core = model->first_component_oracle_core_dense(X, Y, N
                 , rand_samp, x);
             // Compute Theta_k (every 2000 iter)
-            double theta = 1.0;
-            // if(!(i + 1) % 2000) {
-            //     switch(regular) {
-            //         case regularizer::L2: {
-            //             double bAx = 0.0, square_p = 0.0, square_x = 0.0;
-            //             for(size_t k = 0; k < MAX_DIM; k ++) {
-            //                 bAx += yX[k] * x[k];
-            //                 double difference = (inner_core - full_grad_core[rand_samp])
-            //                         * X[rand_samp * MAX_DIM + k];
-            //                 square_p += difference * difference;
-            //                 square_x += x[k] * x[k];
-            //             }
-            //             bAx /= (double) N;
-            //             double SVx = 0.0;
-            //             for(size_t k = 0; k < r; k ++) {
-            //                 double SVd = 0.0;
-            //                 for(size_t l = 0; l < MAX_DIM; l ++)
-            //                     SVd += SV[k * MAX_DIM + l] * x[l];
-            //                 SVx += SVd * SVd;
-            //             }
-            //             theta = (bAx + zeta * square_p)
-            //                 / (SVx / N + zeta * square_p + lambda[0] * square_x);
-            //             break;
-            //         }
-            //         case regularizer::L1: {
-            //             throw std::string("Not Done.");
-            //             break;
-            //         }
-            //         default:
-            //             throw std::string("Error");
-            //             break;
-            //     }
-            // }
+            // Non-acc Normal Loop
+            double theta = 1.0, sigma_i = 1.0;
+            // Acc-SD Loop
+            if(!((j + 1) % 2000)) {
+                sigma_i = sigma;
+                switch(regular) {
+                    case regularizer::L2: {
+                        double bAx = 0.0, square_p = 0.0, square_x = 0.0;
+                        for(size_t k = 0; k < MAX_DIM; k ++) {
+                            bAx += yX[k] * x[k];
+                            double difference = (inner_core - full_grad_core[rand_samp])
+                                    * X[rand_samp * MAX_DIM + k];
+                            square_p += difference * difference;
+                            square_x += x[k] * x[k];
+                        }
+                        bAx /= (double) N;
+                        double SVx = 0.0;
+                        for(size_t k = 0; k < r; k ++) {
+                            double SVd = 0.0;
+                            for(size_t l = 0; l < MAX_DIM; l ++)
+                                SVd += SV[k * MAX_DIM + l] * x[l];
+                            SVx += SVd * SVd;
+                        }
+                        theta = (bAx + zeta * square_p)
+                            / (SVx / N + zeta * square_p + lambda[0] * square_x);
+                        break;
+                    }
+                    case regularizer::L1: {
+                        throw std::string("Not Done.");
+                        break;
+                    }
+                    default:
+                        throw std::string("Error");
+                        break;
+                }
+            }
             for(size_t k = 0; k < MAX_DIM; k ++) {
                 double val = X[rand_samp * MAX_DIM + k];
                 double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[k];
                 y[k] = x[k] - step_size * vr_sub_grad;
                 regularizer::proximal_operator(regular, y[k], step_size, lambda);
-                // Update x
-                prev_x_hat[k] = x_hat[k];
-                x_hat[k] = theta * x[k];
-                x[k] = y[k] + (1.0 - sigma) * (x_hat[k] - prev_x_hat[k]);
-                aver_weights[k] += x_hat[k] / (double) inner_m;
+                // Non Acc Normal Update x
+                // FIXME: Update Choice x_hat or x.
+                if(sigma_i == 1.0) {
+                    x[k] = y[k];
+                    aver_weights[k] += x[k] / (double) inner_m;
+                }
+                // Acc-SD Update x
+                else {
+                    prev_x_hat[k] = x_hat[k];
+                    x_hat[k] = theta * x[k];
+                    x[k] = y[k] + (1.0 - sigma_i) * (x_hat[k] - prev_x_hat[k]);
+                    aver_weights[k] += x_hat[k] / (double) inner_m;
+                }
             }
             total_iterations ++;
         }

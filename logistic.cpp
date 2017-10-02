@@ -1,5 +1,4 @@
 #include "logistic.hpp"
-#include "utils.hpp"
 #include <math.h>
 #include <string.h>
 

@@ -8,53 +8,6 @@
 
 extern size_t MAX_DIM;
 
-void d(double a, std::string s) {
-    if(a != a) {
-        throw s;
-    }
-}
-
-double Naive_SD_lazy_update(double& x, size_t k, double A, double B, double a, double& x0, double& x1) {
-    double aver = 0;
-    for(size_t i = 0; i < k; i ++) {
-        x0 = x1;
-        x1 = x;
-        x = A * (x1 + a) + B * (x0 + a) - a;
-        aver += x1;
-    }
-    return aver;
-}
-
-double SD_lazy_update(double& x, size_t k, double A, double B, double a, double& x0, double& x1) {
-    if(k <= 4)
-        return Naive_SD_lazy_update(x, k, A, B, a, x0, x1);
-
-    x0 = x1;
-    x1 = x;
-    std::complex<double> y0(x0 + a);
-    std::complex<double> y1(x1 + a);
-    std::complex<double> root_term(A * A + 4 * B);
-    std::complex<double> root1 = (std::complex<double>(A) + sqrt(root_term))
-        / std::complex<double>(2.0);
-    std::complex<double> root2 = (std::complex<double>(A) - sqrt(root_term))
-        / std::complex<double>(2.0);
-    std::complex<double> s1 = (y0 * root2 - y1) / (root2 - root1);
-    std::complex<double> s2 = (y1 - y0 * root1) / (root2 - root1);
-
-    std::complex<double> rk1 = pow(root1, k - 1), rk2 = pow(root2, k - 1);
-    double aver = std::real(s1 * root1 * root1 / (std::complex<double>(1) - root1)
-            * (std::complex<double>(1) - rk1)
-             + s2 * root2 * root2 / (std::complex<double>(1) - root2)
-            * (std::complex<double>(1) - rk2)) - (k - 1) * a + x1;
-    x0 = std::real(s1 * rk1 + s2 * rk2);
-    x1 = std::real(s1 * rk1 * root1 + s2 * rk2 * root2);
-    x =  A * x1 + B * x0 - a;
-    x0 -= a;
-    x1 -= a;
-
-    return aver;
-}
-
 std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model
     , size_t iteration_no, double L, double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
     // Random Generator
@@ -74,9 +27,6 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
     double m0 = (double) N * 2.0;
     int regular = model->get_regularizer();
     double* lambda = model->get_params();
-    // L2 Recursive Sequence Parameters
-    double A = 1.0 / (1.0 + lambda[0] * step_size) + 1.0 - sigma;
-    double B = sigma - 1.0;
     size_t total_iterations = 0;
     // Compute (y^T)X
     double* yX = new double [MAX_DIM];
@@ -108,8 +58,9 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
         switch(regular) {
             case regularizer::L2:
             case regularizer::ELASTIC_NET:
-                copy_vec(x, model->get_model());
-                copy_vec(x_hat, model->get_model());
+                // FIXME: Update Options.
+                // copy_vec(x, model->get_model());
+                copy_vec(x_hat, x);
                 break;
             case regularizer::L1:
                 copy_vec(x, y);
@@ -132,77 +83,90 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
             double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N
                 , rand_samp, x);
             // Compute Theta_k (every 2000 iter)
+            // Non-acc Normal Loop
             double theta = 1.0;
-            // if(!(i + 1) % 2000) {
-            //     // Lazy Aggragate to Keep x Up-to-date.
-            //     for(size_t k = 0; k < MAX_DIM; k ++) {
-            //         if((int)j > last_seen[k]) {
-            //             aver_weights[k] += SD_lazy_update(x[k], j - last_seen[k]
-            //                 , A, B, full_grad[k] / lambda[0], prev_x_hat[k], x_hat[k]) / inner_m;
-            //             last_seen[k] = j;
-            //         }
-            //     }
-            //     switch(regular) {
-            //         case regularizer::L2: {
-            //             double bAx = 0.0, square_p = 0.0, square_x = 0.0;
-            //             for(size_t k = 0; k < MAX_DIM; k ++) {
-            //                 bAx += yX[k] * x[k];
-            //                 square_x += x[k] * x[k];
-            //             }
-            //             for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
-            //                 double difference = (inner_core - full_grad_core[rand_samp])
-            //                         * X[k];
-            //                 square_p += difference * difference;
-            //             }
-            //             bAx /= (double) N;
-            //             double Ax = 0.0;
-            //             for(size_t k = 0; k < N; k ++) {
-            //                 double Ad = 0.0;
-            //                 for(size_t l = Jc[k]; l < Jc[k + 1]; l ++)
-            //                     Ad += X[l] * x[Ir[l]];
-            //                 Ax += Ad * Ad;
-            //             }
-            //             theta = (bAx + zeta * square_p)
-            //                 / (Ax / N + zeta * square_p + lambda[0] * square_x);
-            //             break;
-            //         }
-            //         case regularizer::L1: {
-            //             throw std::string("Not Done.");
-            //             break;
-            //         }
-            //         default:
-            //             throw std::string("Error");
-            //             break;
-            //     }
-            // }
-
-            for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
-                size_t index = Ir[k];
-                double val = X[k];
-
-                if((int)j > last_seen[index] + 1) {
-                    // Lazy Update
-                    aver_weights[index] += SD_lazy_update(x[index], j - (last_seen[index] + 1)
-                        , A, B, full_grad[index] / lambda[0], prev_x_hat[index], x_hat[index]) / inner_m;
+            // Acc-SD Loop
+            if(!((j + 1) % 2000)) {
+                // Lazy Aggragate to Keep x Up-to-date.
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    if((int)j > last_seen[k] + 1) {
+                        aver_weights[k] += regularizer::proximal_operator(regular, x[k]
+                            , step_size, lambda, j - (last_seen[k] + 1), true, -step_size * full_grad[k]) / inner_m;
+                        last_seen[k] = j - 1;
+                    }
                 }
+                double* vr_sub_grad = new double[MAX_DIM];
+                memset(vr_sub_grad, 0, MAX_DIM * sizeof(double));
+                switch(regular) {
+                    case regularizer::L2: {
+                        double bAx = 0.0, square_p = 0.0, square_x = 0.0;
+                        for(size_t k = 0; k < MAX_DIM; k ++) {
+                            bAx += yX[k] * x[k];
+                            square_x += x[k] * x[k];
+                        }
+                        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+                            double difference = (inner_core - full_grad_core[rand_samp])
+                                    * X[k];
+                            vr_sub_grad[Ir[k]] = difference;
+                            square_p += difference * difference;
+                        }
+                        bAx /= (double) N;
+                        double Ax = 0.0;
+                        for(size_t k = 0; k < N; k ++) {
+                            double Ad = 0.0;
+                            for(size_t l = Jc[k]; l < Jc[k + 1]; l ++)
+                                Ad += X[l] * x[Ir[l]];
+                            Ax += Ad * Ad;
+                        }
+                        theta = (bAx + zeta * square_p)
+                            / (Ax / N + zeta * square_p + lambda[0] * square_x);
+                        break;
+                    }
+                    case regularizer::L1: {
+                        throw std::string("Not Done.");
+                        break;
+                    }
+                    default:
+                        throw std::string("Error");
+                        break;
+                }
+                // Acc-SD Update x
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    y[k] = x[k] - step_size * (vr_sub_grad[k] + full_grad[k]);
+                    regularizer::proximal_operator(regular, y[k], step_size, lambda);
+                    prev_x_hat[k] = x_hat[k];
+                    x_hat[k] = theta * x[k];
+                    x[k] = y[k] + (1.0 - sigma) * (x_hat[k] - prev_x_hat[k]);
+                    aver_weights[k] += x_hat[k] / (double) inner_m;
+                    last_seen[k] = j;
+                }
+            }
+            else {
+                for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+                    size_t index = Ir[k];
+                    double val = X[k];
 
-                double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[index];
-                y[index] = x[index] - step_size * vr_sub_grad;
-                regularizer::proximal_operator(regular, y[index], step_size, lambda);
-                // Update x
-                prev_x_hat[index] = x_hat[index];
-                x_hat[index] = theta * x[index];
-                x[index] = y[index] + (1.0 - sigma) * (x_hat[index] - prev_x_hat[index]);
-                aver_weights[index] += x_hat[index] / (double) inner_m;
-                last_seen[index] = j;
+                    if((int)j > last_seen[index] + 1) {
+                        // Lazy Update
+                        aver_weights[index] += regularizer::proximal_operator(regular, x[index]
+                            , step_size, lambda, j - (last_seen[index] + 1), true, -step_size * full_grad[index]) / inner_m;
+                    }
+
+                    double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[index];
+                    // Non Acc Normal Update x
+                    x[index] -= step_size * vr_sub_grad;
+                    regularizer::proximal_operator(regular, x[index], step_size, lambda);
+                    aver_weights[index] += x[index] / (double) inner_m;
+                    last_seen[index] = j;
+                }
             }
             total_iterations ++;
         }
         for(size_t j = 0; j < MAX_DIM; j ++) {
             if(inner_m > last_seen[j] + 1) {
                 // Lazy Aggragate
-                aver_weights[j] += SD_lazy_update(x[j], inner_m - (last_seen[j] + 1)
-                    , A, B, full_grad[j] / lambda[0], prev_x_hat[j], x_hat[j]) / inner_m;
+                aver_weights[j] += regularizer::proximal_operator(regular, x[j]
+                    , step_size, lambda, inner_m - (last_seen[j] + 1), true, -step_size * full_grad[j]) / inner_m;
             }
         }
         model->update_model(aver_weights);
