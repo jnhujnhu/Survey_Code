@@ -603,9 +603,10 @@ std::vector<double>* grad_desc_dense::Katyusha_2(double* X, double* Y, size_t N,
     return NULL;
 }
 
-// Only for Ridge or Lasso
+// Only for Ridge Regression
 std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, blackbox* model
-    , size_t iteration_no, double L, double step_size, double r, double* SV, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , size_t iteration_no, size_t interval, double L, double sigma, double step_size, double r
+    , double* SV, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -614,8 +615,6 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
     double* x = new double[MAX_DIM];
     double* y = new double[MAX_DIM];
     double* x_hat = new double[MAX_DIM];
-    // Momentum Constant
-    double sigma = 1.0 / 3.0;
     // Trade off parameter
     double delta = 0.1;
     double zeta = delta * step_size / (1.0 - L * step_size);
@@ -680,7 +679,7 @@ std::vector<double>* grad_desc_dense::SVRG_SD(double* X, double* Y, size_t N, bl
             // Non-acc Normal Loop
             double theta = 1.0, sigma_i = 1.0;
             // Acc-SD Loop
-            if(!((j + 1) % 2000)) {
+            if(!((j + 1) % interval)) {
                 sigma_i = sigma;
                 switch(regular) {
                     case regularizer::L2: {

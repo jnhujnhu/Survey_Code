@@ -8,8 +8,10 @@
 
 extern size_t MAX_DIM;
 
-std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model
-    , size_t iteration_no, double L, double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* Jc
+    , size_t* Ir, size_t N, blackbox* model, size_t iteration_no, size_t interval
+    , double L, double sigma, double step_size, bool is_store_weight, bool is_debug_mode
+    , bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -19,8 +21,6 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
     double* y = new double[MAX_DIM];
     double* x_hat = new double[MAX_DIM];
     double* full_grad = new double[MAX_DIM];
-    // Momentum Constant
-    double sigma = 1.0 / 3.0;
     // Trade off parameter
     double delta = 0.1;
     double zeta = delta * step_size / (1.0 - L * step_size);
@@ -80,13 +80,11 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
         // INNER_LOOP
         for(size_t j = 0; j < inner_m; j ++) {
             int rand_samp = distribution(generator);
-            double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N
-                , rand_samp, x);
             // Compute Theta_k (every 2000 iter)
             // Non-acc Normal Loop
             double theta = 1.0;
             // Acc-SD Loop
-            if(!((j + 1) % 2000)) {
+            if(!((j + 1) % interval)) {
                 // Lazy Aggragate to Keep x Up-to-date.
                 for(size_t k = 0; k < MAX_DIM; k ++) {
                     if((int)j > last_seen[k] + 1) {
@@ -95,6 +93,8 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
                         last_seen[k] = j - 1;
                     }
                 }
+                double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N
+                                        , rand_samp, x);
                 double* vr_sub_grad = new double[MAX_DIM];
                 memset(vr_sub_grad, 0, MAX_DIM * sizeof(double));
                 switch(regular) {
@@ -144,14 +144,17 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
             else {
                 for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
                     size_t index = Ir[k];
-                    double val = X[k];
-
                     if((int)j > last_seen[index] + 1) {
                         // Lazy Update
                         aver_weights[index] += regularizer::proximal_operator(regular, x[index]
                             , step_size, lambda, j - (last_seen[index] + 1), true, -step_size * full_grad[index]) / inner_m;
                     }
-
+                }
+                double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N
+                                        , rand_samp, x);
+                for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+                    size_t index = Ir[k];
+                    double val = X[k];
                     double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[index];
                     // Non Acc Normal Update x
                     x[index] -= step_size * vr_sub_grad;

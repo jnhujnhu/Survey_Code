@@ -191,13 +191,14 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             len_stored_F = vec_stored_F->size();
         }
         else if(strcmp(_algo, "SVRG_SD") == 0) {
+            size_t interval = (size_t) mxGetScalar(prhs[14]);
             if(is_sparse)
-                vec_stored_F = grad_desc_sd_sparse::SVRG_SD(X, Y, Jc, Ir, N, model, iteration_no, L, step_size,
+                vec_stored_F = grad_desc_sd_sparse::SVRG_SD(X, Y, Jc, Ir, N, model, iteration_no, interval, L, sigma, step_size,
                     false, false, is_store_result);
             else {
-                double r = mxGetScalar(prhs[14]);
-                double* SV = mxGetPr(prhs[15]);
-                vec_stored_F = grad_desc_dense::SVRG_SD(X, Y, N, model, iteration_no, L, step_size,
+                double r = mxGetScalar(prhs[15]);
+                double* SV = mxGetPr(prhs[16]);
+                vec_stored_F = grad_desc_dense::SVRG_SD(X, Y, N, model, iteration_no, interval, L, sigma, step_size,
                     r, SV, false, false, is_store_result);
             }
             stored_F = &(*vec_stored_F)[0];

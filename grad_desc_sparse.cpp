@@ -147,9 +147,6 @@ std::vector<double>* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, si
     size_t skip_pass = 0;
     for(size_t i = 0; i < iteration_no; i ++) {
         int rand_samp = distribution(generator);
-        double core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, new_weights);
-        double past_grad_core = grad_core_table[rand_samp];
-        grad_core_table[rand_samp] = core;
         for(size_t j = Jc[rand_samp]; j < Jc[rand_samp + 1]; j ++) {
             size_t index = Ir[j];
             // lazy update or lagged update in Schmidt et al.[2016]
@@ -157,6 +154,12 @@ std::vector<double>* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, si
                 regularizer::proximal_operator(regular, new_weights[index], step_size
                         , lambda, i - (last_seen[index] + 1), false, -step_size * aver_grad[index]);
             }
+        }
+        double core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, new_weights);
+        double past_grad_core = grad_core_table[rand_samp];
+        grad_core_table[rand_samp] = core;
+        for(size_t j = Jc[rand_samp]; j < Jc[rand_samp + 1]; j ++) {
+            size_t index = Ir[j];
             // Update Weight
             new_weights[index] -= step_size * ((core - past_grad_core)* X[j] + aver_grad[index]);
             // Update Gradient Table Average
@@ -252,11 +255,8 @@ std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* J
         // INNER_LOOP
         for(size_t j = 0; j < inner_m; j ++) {
             int rand_samp = distribution(generator);
-            double inner_core = model->first_component_oracle_core_sparse(X, Y
-                        , Jc, Ir, N, rand_samp, inner_weights);
             for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
                 size_t index = Ir[k];
-                double val = X[k];
                 // lazy update
                 if((int)j > last_seen[index] + 1) {
                     switch(Mode) {
@@ -274,6 +274,12 @@ std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* J
                             break;
                     }
                 }
+            }
+            double inner_core = model->first_component_oracle_core_sparse(X, Y
+                        , Jc, Ir, N, rand_samp, inner_weights);
+            for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+                size_t index = Ir[k];
+                double val = X[k];
                 double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[index];
                 inner_weights[index] -= step_size * vr_sub_grad;
                 aver_weights[index] += regularizer::proximal_operator(regular, inner_weights[index]
@@ -391,11 +397,8 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
             // INNER_LOOP
             for(size_t j = 0; j < inner_m ; j ++) {
                 int rand_samp = distribution(generator);
-                double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N
-                    , rand_samp, inner_weights);
                 for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
                     size_t index = Ir[k];
-                    double val = X[k];
                     // lazy update
                     if((int)j > last_seen[index] + 1) {
                         switch(Mode) {
@@ -414,6 +417,12 @@ std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, si
                                 break;
                         }
                     }
+                }
+                double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N
+                                        , rand_samp, inner_weights);
+                for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+                    size_t index = Ir[k];
+                    double val = X[k];
                     double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
                              + inner_weights[index]* lambda[0] + full_grad[index];
                     inner_weights[index] -= step_size * vr_sub_grad;
@@ -953,10 +962,8 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
         // INNER LOOP
         for(size_t j = 0; j < m; j ++) {
             int rand_samp = distribution(generator);
-            double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, inner_weights);
             for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
                 size_t index = Ir[k];
-                double val = X[k];
                 // lazy update
                 if((int)j > last_seen[index] + 1) {
                     ////// For Katyusha With Update Option I //////
@@ -986,6 +993,11 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
                     inner_weights[index] = tau_1 * z[index] + tau_2 * outter_weights[index]
                                      + (1 - tau_1 - tau_2) * y[index];
                 }
+            }
+            double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, inner_weights);
+            for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+                size_t index = Ir[k];
+                double val = X[k];
                 double katyusha_grad = full_grad[index] + val * (inner_core - full_grad_core[rand_samp]);
                 double prev_z = z[index];
                 z[index] -= alpha * katyusha_grad;
