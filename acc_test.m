@@ -3,11 +3,12 @@ clear;
 %load 'rcv1_train.binary.mat';
 load 'a9a.mat';
 %load 'covtype.mat';
+
 %% Parse Data
-% X = [ones(size(X, 1), 1) X];
+X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
-X = X';
-% X = full(X');
+% X = X';
+X = full(X');
 
 %% Normalize Data
 % sum1 = 1./sqrt(sum(X.^2, 1));
@@ -30,58 +31,18 @@ Mode = 1;
 is_plot = true;
 fprintf('Model: %s-%s\n', regularizer, model);
 
-% For SVRG / Prox_SVRG
-% Mode 1: last_iter--last_iter  ----Standard SVRG
-% Mode 2: aver_iter--aver_iter  ----Standard Prox_SVRG
-% Mode 3: aver_iter--last_iter  ----VR-SGD
-
-% SVRG
-algorithm = 'SVRG';
-Mode = 1;
-step_size = 1 / (5 * L);
+% Katyusha
+algorithm = 'Katyusha';
+% Fixed step_size
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
 tic;
 hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
 time = toc;
 fprintf('Time: %f seconds \n', time);
-X_SVRG = [0:3:passes]';
-hist1 = [X_SVRG, hist1];
-
-% % Katyusha
-algorithm = 'Katyusha';
-% Fixed step_size
-loop = int64(passes / 3); % 3 passes per loop
-fprintf('Algorithm: %s\n', algorithm);
-tic;
-hist2 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
-time = toc;
-fprintf('Time: %f seconds \n', time);
 X_Katyusha = [0:3:passes]';
-hist2 = [X_Katyusha, hist2];
+hist1 = [X_Katyusha, hist1];
 clear X_Katyusha;
-
-% SVRG_SD (ONLY RIDGE)
-algorithm = 'SVRG_SD';
-sigma = 1.0 / 3.0; % Momentum Constant
-interval = 5000; % Sufficient Decrease Iterate Interval
-step_size = 1 / (5 * L);
-loop = int64(passes / 3); % 3 passes per loop
-fprintf('Algorithm: %s\n', algorithm);
-% for partial SVD(in dense case)
-r = Dim;
-A = 0;
-tic;
-% SVD for dense case
-if(~is_sparse)
-    [U, S, V] = svds(X', r);
-    A = (S * V')';
-end
-hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, r, A);
-time = toc;
-fprintf('Time: %f seconds \n', time);
-hist3 = [X_SVRG, hist3];
-clear X_SVRG;
 
 %% Plot
 if(is_plot)
@@ -105,5 +66,5 @@ if(is_plot)
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
     axis([0 50, 1E-12,aa]);
-    legend('SVRG', 'Katyusha', 'SVRG-SD'); %, 'SVRG', 'Prox-SVRG', 'Katyusha', 'SVRG-SD');
+    legend('Katyusha', 'Acc-SVRG1', 'Acc-SVRG2'); %, 'SVRG', 'Prox-SVRG', 'Katyusha', 'SVRG-SD');
 end

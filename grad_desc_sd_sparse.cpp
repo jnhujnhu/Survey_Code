@@ -10,8 +10,7 @@ extern size_t MAX_DIM;
 
 std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* Jc
     , size_t* Ir, size_t N, blackbox* model, size_t iteration_no, size_t interval
-    , double L, double sigma, double step_size, bool is_store_weight, bool is_debug_mode
-    , bool is_store_result) {
+    , double L, double sigma, double step_size, bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -196,8 +195,8 @@ std::vector<double>* grad_desc_sd_sparse::SVRG_SD(double* X, double* Y, size_t* 
     return NULL;
 }
 
-std::vector<double>* grad_desc_sd_sparse::SAGA_SD(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model
-    , size_t iteration_no, double L, double step_size, double r, double* SV, bool is_store_weight
-    , bool is_debug_mode, bool is_store_result) {
+std::vector<double>* grad_desc_sd_sparse::SAGA_SD(double* X, double* Y, size_t* Jc
+    , size_t* Ir, size_t N, blackbox* model, size_t iteration_no, size_t interval
+    , double L, double sigma, double step_size, bool is_store_result) {
     return NULL;
 }

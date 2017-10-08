@@ -9,7 +9,7 @@ extern size_t MAX_DIM;
 
 double* grad_desc_sparse::GD(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, double L, double step_size
-    , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , bool is_store_result) {
     double* stored_F = NULL;
     size_t passes = iteration_no;
     if(is_store_result)
@@ -46,7 +46,7 @@ double* grad_desc_sparse::GD(double* X, double* Y, size_t* Jc, size_t* Ir
 
 double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, double L, double step_size
-    , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -63,13 +63,11 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
         stored_F = new double[passes + 1];
         stored_F[0] = model->zero_oracle_sparse(X, Y, Jc, Ir, N);
     }
-
     double* sub_grad = new double[MAX_DIM];
     double* new_weights = new double[MAX_DIM];
     copy_vec(new_weights, model->get_model());
     for(size_t i = 0; i < iteration_no; i ++) {
         int rand_samp = distribution(generator);
-        double core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, new_weights);
         for(size_t j = Jc[rand_samp]; j < Jc[rand_samp + 1]; j ++) {
             size_t index = Ir[j];
             // lazy update.
@@ -77,6 +75,10 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
                 regularizer::proximal_operator(regular, new_weights[index], step_size, lambda
                     , i - (last_seen[index] + 1), false);
             }
+        }
+        double core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, new_weights);
+        for(size_t j = Jc[rand_samp]; j < Jc[rand_samp + 1]; j ++) {
+            size_t index = Ir[j];
             new_weights[index] -= step_size * core * X[j];
             regularizer::proximal_operator(regular, new_weights[index], step_size, lambda);
             last_seen[index] = i;
@@ -114,8 +116,7 @@ double* grad_desc_sparse::SGD(double* X, double* Y, size_t* Jc, size_t* Ir
 }
 
 std::vector<double>* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
-    , blackbox* model, size_t iteration_no, double L, double step_size, bool is_store_weight
-    , bool is_debug_mode, bool is_store_result) {
+    , blackbox* model, size_t iteration_no, double L, double step_size, bool is_store_result) {
         // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -143,7 +144,6 @@ std::vector<double>* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, si
         for(size_t j = Jc[i]; j < Jc[i + 1]; j ++)
             aver_grad[Ir[j]] += grad_core_table[i] * X[j] / N;
     }
-
     size_t skip_pass = 0;
     for(size_t i = 0; i < iteration_no; i ++) {
         int rand_samp = distribution(generator);
@@ -205,7 +205,7 @@ std::vector<double>* grad_desc_sparse::SAGA(double* X, double* Y, size_t* Jc, si
 
 std::vector<double>* grad_desc_sparse::Prox_SVRG(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, int Mode, double L, double step_size
-    , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -348,7 +348,7 @@ double lazy_update_SVRG(double& w, double Const, double A, size_t times, bool is
 // Only Applicable for L2 regularizer
 std::vector<double>* grad_desc_sparse::SVRG(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, int Mode, double L
-    , double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , double step_size, bool is_store_result) {
         // Random Generator
         std::random_device rd;
         std::default_random_engine generator(rd());
@@ -517,8 +517,8 @@ double Naive_Katyusha_lazy_proximal(double& _y0, double& _z0, int regular, doubl
 
 ///// For Katyusha With Update Option II //////
 double Naive_Katyusha_lazy_proximal2(double& _y0, double& _z0, int regular, double tau_1, double tau_2
-    , double* lambda, double step_size_y, double alpha, double _outterx, double _F
-    , size_t times, int start_iter, double compos_factor, double compos_base, double m, double* compos_pow) {
+    , double* lambda, double alpha, double _outterx, double _F, size_t times, int start_iter
+    , double compos_factor, double compos_base, double m, double* compos_pow) {
     double lazy_average = 0.0;
     for(size_t i = 0; i < times; i ++) {
         double temp_z = _z0 - alpha * _F;
@@ -542,10 +542,10 @@ double Naive_Katyusha_lazy_proximal2(double& _y0, double& _z0, int regular, doub
 }
 
 ///// For Katyusha With Update Option II //////
-double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
-        , double* lambda, size_t times, double tau_1, double tau_2, double step_size_y
-        , double alpha, double _outterx, double _F, int start_iter, double compos_factor
-        , double compos_base, double m, double* compos_pow) {
+double Katyusha_lazy_proximal(double& _y, double& _z, int _regular, double* lambda
+        , size_t times, double tau_1, double tau_2, double alpha, double _outterx
+        , double _F, int start_iter, double compos_factor, double compos_base
+        , double m, double* compos_pow) {
     double lazy_average_z = 0.0;
     double weighted_lazy_average_z = 0.0;
     double lazy_average_y = 0.0;
@@ -896,7 +896,7 @@ double Katyusha_lazy_proximal(double& _y, double& _z, int _regular
 
 std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, double L, double sigma
-    , double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , double step_size, bool is_store_result) {
     // Random Generator
     std::vector<double>* stored_F = new std::vector<double>;
     std::random_device rd;
@@ -983,11 +983,11 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
 
                     ////// For Katyusha With Update Option II //////
                     // aver_weights[index] += Naive_Katyusha_lazy_proximal2(y[index], z[index], regular
-                    //         , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[index]
+                    //         , tau_1, tau_2, lambda, alpha, outter_weights[index]
                     //         , full_grad[index], j - (last_seen[index] + 1), last_seen[index]
                     //         , compos_factor, compos_base, m, compos_pow);
                     aver_weights[index] += Katyusha_lazy_proximal(y[index], z[index], regular
-                            , lambda, j - (last_seen[index] + 1), tau_1, tau_2, step_size_y
+                            , lambda, j - (last_seen[index] + 1), tau_1, tau_2
                             , alpha, outter_weights[index], full_grad[index], last_seen[index]
                             , compos_factor, compos_base, m, compos_pow);
                     inner_weights[index] = tau_1 * z[index] + tau_2 * outter_weights[index]
@@ -1049,11 +1049,11 @@ std::vector<double>* grad_desc_sparse::Katyusha(double* X, double* Y, size_t* Jc
 
                 ////// For Katyusha With Update Option II //////
                 // aver_weights[j] += Naive_Katyusha_lazy_proximal2(y[j], z[j], regular
-                //             , tau_1, tau_2, lambda, step_size_y, alpha, outter_weights[j]
+                //             , tau_1, tau_2, lambda, alpha, outter_weights[j]
                 //             , full_grad[j], m - (last_seen[j] + 1), last_seen[j]
                 //             , compos_factor, compos_base, m, compos_pow);
                 aver_weights[j] += Katyusha_lazy_proximal(y[j], z[j], regular
-                            , lambda, m - (last_seen[j] + 1), tau_1, tau_2, step_size_y
+                            , lambda, m - (last_seen[j] + 1), tau_1, tau_2
                             , alpha, outter_weights[j], full_grad[j], last_seen[j]
                             , compos_factor, compos_base, m, compos_pow);
                 inner_weights[j] = tau_1 * z[j] + tau_2 * outter_weights[j]

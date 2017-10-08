@@ -13,8 +13,8 @@ namespace regularizer {
         , bool is_averaged);
     double EN_proximal_loop(double& _prox, double P, double Q, size_t times, double additional_constant
         , bool is_averaged);
-    double L1_single_step(double& X, double P, double C, bool is_averaged);
-    double EN_single_step(double& X, double P, double Q, double C, bool is_averaged);
+    double L1_single_step(double& X, double P, double C = 0.0, bool is_averaged = false);
+    double EN_single_step(double& X, double P, double Q, double C = 0.0, bool is_averaged = false);
     double proximal_operator(int _regular, double& _prox, double step_size, double* lambda
             , size_t times, bool is_averaged = false, double additional_constant = 0.0);
     double proximal_operator(int _regular, double& _prox, double step_size, double* lambda);

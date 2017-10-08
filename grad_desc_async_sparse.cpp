@@ -8,8 +8,7 @@
 extern size_t MAX_DIM;
 
 std::vector<double>* grad_desc_async_sparse::ASAGA(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
-    , blackbox* model, size_t iteration_no, double L, double step_size, bool is_store_weight
-    , bool is_debug_mode, bool is_store_result) {
+    , blackbox* model, size_t iteration_no, double L, double step_size, bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -84,7 +83,7 @@ std::vector<double>* grad_desc_async_sparse::ASAGA(double* X, double* Y, size_t*
 
 std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, int Mode, double L, double step_size
-    , bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -186,7 +185,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, si
 // Only L2, TODO: Implement Real Asynchronous SVRG (AsySVRG)
 std::vector<double>* grad_desc_async_sparse::ASVRG(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, int Mode, double L
-    , double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , double step_size, bool is_store_result) {
         // Random Generator
         std::random_device rd;
         std::default_random_engine generator(rd());
@@ -285,7 +284,7 @@ std::vector<double>* grad_desc_async_sparse::ASVRG(double* X, double* Y, size_t*
 
 std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, double L, double sigma
-    , double step_size, bool is_store_weight, bool is_debug_mode, bool is_store_result) {
+    , double step_size, bool is_store_result) {
     // Random Generator
     std::vector<double>* stored_F = new std::vector<double>;
     std::random_device rd;
@@ -379,6 +378,7 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, si
     delete[] inner_weights;
     delete[] full_grad;
     delete[] compos_pow;
+    delete[] reweight_diag;
     if(is_store_result)
         return stored_F;
     return NULL;
