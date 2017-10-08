@@ -26,7 +26,7 @@ namespace grad_desc_dense {
     std::vector<double>* Katyusha_2(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no
         , double L = 1.0, double sigma = 0.0001, double step_size = 1.0, bool is_store_result = false);
 
-    // Only Ridge Regression
+    // Only Ridge Regression & Lasso
     std::vector<double>* SVRG_SD(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no
         , size_t interval, double L, double sigma, double step_size, double r, double* SV, bool is_store_result = false);
     std::vector<double>* SAGA_SD(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no

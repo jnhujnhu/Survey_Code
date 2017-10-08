@@ -788,7 +788,6 @@ std::vector<double>* grad_desc_dense::SAGA_SD(double* X, double* Y, size_t N, bl
     double* x_hat = new double[MAX_DIM];
     double* grad_core_table = new double[N];
     double* aver_grad = new double[MAX_DIM];
-    memset(aver_grad, 0, MAX_DIM * sizeof(double));
     // Trade off parameter
     double delta = 0.1;
     double zeta = delta * step_size / (1.0 - L * step_size);
