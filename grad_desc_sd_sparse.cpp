@@ -1,9 +1,12 @@
 #include "grad_desc_sd_sparse.hpp"
 #include "utils.hpp"
 #include "regularizer.hpp"
-#include <random>
+#include <algorithm>
+#include <ctime>
 #include <cmath>
 #include <complex>
+#include <cstdlib>
+#include <random>
 #include <string.h>
 
 extern size_t MAX_DIM;
@@ -21,6 +24,9 @@ std::vector<double>* grad_desc_sd_sparse::SAGA_SD(double* X, double* Y, size_t* 
     double* x_hat = new double[MAX_DIM];
     double* grad_core_table = new double[N];
     double* aver_grad = new double[MAX_DIM];
+    // permutation for inner_loop random sample
+    double* permutation = new double[N];
+    for(size_t i = 0; i < N; i ++) permutation[i] = i;
     // Trade off parameter
     double delta = 0.1;
     double zeta = delta * step_size / (1.0 - L * step_size);
@@ -54,7 +60,9 @@ std::vector<double>* grad_desc_sd_sparse::SAGA_SD(double* X, double* Y, size_t* 
         memset(aver_weights, 0, MAX_DIM * sizeof(double));
         memset(aver_grad, 0, MAX_DIM * sizeof(double));
         for(size_t i = 0; i < MAX_DIM; i ++) last_seen[i] = -1;
-
+        // Generate Random permutation
+        std::srand(unsigned(std::time(0)));
+        std::random_shuffle(permutation, permutation + N);
         switch(regular) {
             case regularizer::L2:
             case regularizer::ELASTIC_NET:
@@ -79,7 +87,7 @@ std::vector<double>* grad_desc_sd_sparse::SAGA_SD(double* X, double* Y, size_t* 
         }
         // INNER_LOOP
         for(size_t j = 0; j < inner_m; j ++) {
-            int rand_samp = distribution(generator);
+            int rand_samp = permutation[j];
             // Compute Theta_k (every 2000 iter)
             // Non-acc Normal Loop
             double theta = 1.0;

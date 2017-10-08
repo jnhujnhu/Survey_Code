@@ -20,7 +20,7 @@ passes = 300;
 model = 'least_square'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
-lambda1 = 10^(-6); % L2_norm / elastic_net
+lambda1 = 10^(-7); % L2_norm / elastic_net
 lambda2 = 10^(-4); % L1_norm / elastic_net
 L = (max(sum(X.^2, 1)) + lambda1); % For logistic regression
 sigma = lambda1; 
@@ -64,8 +64,8 @@ clear X_SAGA;
 % SAGA_SD
 algorithm = 'SAGA_SD';
 sigma = 1.0 / 2.0; % Momentum Constant
-interval = 2000; % Sufficient Decrease Iterate Interval
-step_size = 2 / (5 * L);
+interval = 5000; % Sufficient Decrease Iterate Interval
+step_size = 9.6 / (5 * L);
 loop = int64(passes / 2); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
 % for partial SVD(in dense case)
