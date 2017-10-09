@@ -2,6 +2,7 @@
 #include "mex.h"
 #include "grad_desc_sparse.hpp"
 #include "grad_desc_sd_sparse.hpp"
+#include "grad_desc_acc_dense.hpp"
 #include "grad_desc_async_sparse.hpp"
 #include "grad_desc_dense.hpp"
 #include "svm.hpp"
@@ -215,6 +216,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                 vec_stored_F = grad_desc_dense::SAGA_SD(X, Y, N, model, iteration_no, interval, L, sigma, step_size,
                     r, SV, is_store_result);
             }
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "Acc_Prox_SVRG1") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("404 Not Done Yet.");
+            else
+                vec_stored_F = grad_desc_acc_dense::Acc_Prox_SVRG1(X, Y, N, model, iteration_no, L, sigma, step_size,
+                    is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }

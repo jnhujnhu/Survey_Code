@@ -1,8 +1,8 @@
 clear; 
 %load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
-%load 'a9a.mat';
-load 'Covtype.mat';
+load 'a9a.mat';
+%load 'Covtype.mat';
 %% Parse Data
 % X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
