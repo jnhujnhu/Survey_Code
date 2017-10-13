@@ -1,4 +1,4 @@
-clear; 
+clear;
 %load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
 load 'a9a.mat';
@@ -30,8 +30,8 @@ is_plot = true;
 fprintf('Model: %s-%s\n', regularizer, model);
 
 %% SVRG
-algorithm = 'Prox_SVRG';
-Mode = 1;
+algorithm = 'SVRG';
+Mode = 2;
 step_size = 4 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
@@ -90,7 +90,6 @@ hist4 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, 
 time = toc;
 fprintf('Time: %f seconds \n', time);
 hist4 = [X_SVRG, hist4];
-clear X_SVRG;
 
 %% SAGA_SD
 algorithm = 'SAGA_SD';
@@ -115,6 +114,27 @@ X_SAGA_SD = [0:2:passes]';
 hist5 = [X_SAGA_SD, hist5];
 clear X_SAGA_SD;
 
+%% SVRG_LS
+algorithm = 'SVRG_LS';
+Mode = 2;
+step_size = 4 / (5 * L);
+interval = 3000;
+loop = int64(passes / 3); % 3 passes per loop
+fprintf('Algorithm: %s\n', algorithm);
+r = Dim;
+A = 0;
+tic;
+% SVD for dense case
+if(~is_sparse)
+    [U, S, V] = svds(X', r);
+    A = (S * V')';
+end
+hist6 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, r, A);
+time = toc;
+fprintf('Time: %f seconds \n', time);
+hist6 = [X_SVRG, hist6];
+clear X_SVRG;
+
 %% Plot
 if(is_plot)
     aa1 = min(hist1(:, 2));
@@ -122,7 +142,8 @@ if(is_plot)
     aa3 = min(hist3(:, 2));
     aa4 = min(hist4(:, 2));
     aa5 = min(hist5(:, 2));
-    minval = min([aa1, aa2, aa3, aa4, aa5]) - 2e-16;
+    aa6 = min(hist6(:, 2));
+    minval = min([aa1, aa2, aa3, aa4, aa5, aa6]) - 2e-16;
     aa = max(max([hist1(:, 2)])) - minval;
     b = 1;
 
@@ -133,9 +154,10 @@ if(is_plot)
     hold on,semilogy(hist3(1:b:end,1), abs(hist3(1:b:end,2) - minval),'c--+','linewidth',1.2,'markersize',4.5);
     hold on,semilogy(hist4(1:b:end,1), abs(hist4(1:b:end,2) - minval),'r-.d','linewidth',1.2,'markersize',4.5);
     hold on,semilogy(hist5(1:b:end,1), abs(hist5(1:b:end,2) - minval),'k--<','linewidth',1.2,'markersize',4.5);
+    hold on,semilogy(hist6(1:b:end,1), abs(hist6(1:b:end,2) - minval),'m--<','linewidth',1.2,'markersize',4.5);
     hold off;
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
-    axis([0 210, 1E-12,aa]);
-    legend('SVRG', 'SAGA', 'Katyusha', 'SVRG-SD', 'SAGA-SD');
+    axis([0 100, 1E-12,aa]);
+    legend('SVRG', 'SAGA', 'Katyusha', 'SVRG-SD', 'SAGA-SD', 'SVRG-LS');
 end

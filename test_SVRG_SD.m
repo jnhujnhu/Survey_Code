@@ -1,8 +1,8 @@
 clear;mex_all;
 %load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
-%load 'a9a.mat';
-load 'Covtype.mat';
+load 'a9a.mat';
+%load 'Covtype.mat';
 %% Parse Data
 % X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
@@ -18,7 +18,7 @@ X = full(X');
 %% Set Params
 passes = 300;
 model = 'least_square'; % least_square / svm / logistic
-regularizer = 'L1'; % L1 / L2 / elastic_net
+regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
 lambda1 = 10^(-4); % L2_norm / elastic_net
 lambda2 = 10^(-4); % L1_norm / elastic_net
@@ -91,7 +91,7 @@ if(is_plot)
 %     aa4 = min(hist4(:, 2));
 %     aa5 = min(hist5(:, 2));
 %     aa6 = min(hist6(:, 2));
-    minval = min([aa1]) - 2e-16;
+    minval = min([aa1, aa2, aa3]) - 2e-16;
     aa = max(max([hist1(:, 2)])) - minval;
     b = 1;
 

@@ -19,10 +19,10 @@ X = full(X');
 %% Set Params
 passes = 300;
 model = 'least_square'; % least_square / svm / logistic
-regularizer = 'L1'; % L1 / L2 / elastic_net
+regularizer = 'elastic_net'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
-lambda1 = 10^(-6); % L2_norm / elastic_net
-lambda2 = 10^(-4); % L1_norm / elastic_net
+lambda1 = 10^(-4); % L2_norm / elastic_net
+lambda2 = 10^(-7); % L1_norm / elastic_net
 L = ( max(sum(X.^2, 1)) + lambda1);
 sigma = lambda1;
 is_sparse = issparse(X);
@@ -128,6 +128,6 @@ if(is_plot)
     hold off;
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
-    axis([0 100, 1E-12,aa]);
+    axis([0 passes, 1E-12,aa]);
     legend('Prox-SVRG', 'Katyusha', 'Acc-Prox-SVRG1-4/5', 'Acc-Prox-SVRG1-3/4', 'Acc-Prox-SVRG1-1/2', 'Acc-Prox-SVRG1-1/3');
 end

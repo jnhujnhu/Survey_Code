@@ -1,8 +1,8 @@
 clear; mex_all;
 %load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
-%load 'a9a.mat';
-load 'Covtype.mat';
+load 'a9a.mat';
+%load 'Covtype.mat';
 %% Parse Data
 % X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
@@ -156,7 +156,7 @@ if(is_plot)
     figure(101);
     set(gcf,'position',[200,100,386,269]);
     semilogy(hist1(1:b:end,1), abs(hist1(1:b:end,2) - minval),'b--o','linewidth',1.6,'markersize',4.5);
-    % hold on,semilogy(hist2(1:b:end,1), abs(hist2(1:b:end,2) - minval),'g-.^','linewidth',1.6,'markersize',4.5);
+     %hold on,semilogy(hist2(1:b:end,1), abs(hist2(1:b:end,2) - minval),'g-.^','linewidth',1.6,'markersize',4.5);
     hold on,semilogy(hist3(1:b:end,1), abs(hist3(1:b:end,2) - minval),'c--+','linewidth',1.2,'markersize',4.5);
 %     hold on,semilogy(hist4(1:b:end,1), abs(hist4(1:b:end,2) - minval),'r-.d','linewidth',1.2,'markersize',4.5);
 %     hold on,semilogy(hist5(1:b:end,1), abs(hist5(1:b:end,2) - minval),'k--<','linewidth',1.2,'markersize',4.5);
@@ -164,5 +164,5 @@ if(is_plot)
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
     axis([0 300, 1E-12,aa]);
-    legend('SAGA', 'SAGA-SD');%, 'SAGAD', 'SAGAD-SD');
+    legend('SAGA', 'SGD');%, 'SAGAD', 'SAGAD-SD');
 end

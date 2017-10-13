@@ -192,6 +192,7 @@ std::vector<double>* grad_desc_dense::Prox_SVRG(double* X, double* Y, size_t N, 
                 throw std::string("400 Unrecognized Mode.");
                 break;
         }
+        // double step_size = comp_l1_norm(full_grad);
         // INNER_LOOP
         for(size_t j = 0; j < inner_m; j ++) {
             int rand_samp = distribution(generator);
@@ -234,112 +235,149 @@ std::vector<double>* grad_desc_dense::Prox_SVRG(double* X, double* Y, size_t N, 
 // Only Applicable for L2 regularizer
 std::vector<double>* grad_desc_dense::SVRG(double* X, double* Y, size_t N, blackbox* model
     , size_t iteration_no, int Mode, double L, double step_size, bool is_store_result) {
-        // Random Generator
-        std::random_device rd;
-        std::default_random_engine generator(rd());
-        std::uniform_int_distribution<int> distribution(0, N - 1);
-        std::vector<double>* stored_F = new std::vector<double>;
-        double* inner_weights = new double[MAX_DIM];
-        double* full_grad = new double[MAX_DIM];
-        double* lambda = model->get_params();
-        //FIXME: Epoch Size(SVRG / SVRG++)
-        double m0 = (double) N * 2.0;
-        size_t total_iterations = 0;
-        copy_vec(inner_weights, model->get_model());
-        // Init Weight Evaluate
-        if(is_store_result)
-            stored_F->push_back(model->zero_oracle_dense(X, Y, N));
-        // OUTTER_LOOP
-        for(size_t i = 0 ; i < iteration_no; i ++) {
-            double* full_grad_core = new double[N];
-            // Average Iterates
-            double* aver_weights = new double[MAX_DIM];
-            //FIXME: SVRG / SVRG++
-            double inner_m = m0;//pow(2, i + 1) * m0;
-            memset(aver_weights, 0, MAX_DIM * sizeof(double));
-            memset(full_grad, 0, MAX_DIM * sizeof(double));
-            // Full Gradient
-            for(size_t j = 0; j < N; j ++) {
-                full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
-                for(size_t k = 0; k < MAX_DIM; k ++) {
-                    full_grad[k] += (X[j * MAX_DIM + k] * full_grad_core[j]) / (double) N;
-                }
+    // Random Generator
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, N - 1);
+    std::vector<double>* stored_F = new std::vector<double>;
+    double* inner_weights = new double[MAX_DIM];
+    double* full_grad = new double[MAX_DIM];
+    double* lambda = model->get_params();
+    //FIXME: Epoch Size(SVRG / SVRG++)
+    double m0 = (double) N * 2.0;
+    size_t total_iterations = 0;
+    copy_vec(inner_weights, model->get_model());
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+    // OUTTER_LOOP
+    for(size_t i = 0 ; i < iteration_no; i ++) {
+        double* full_grad_core = new double[N];
+        // Average Iterates
+        double* aver_weights = new double[MAX_DIM];
+        //FIXME: SVRG / SVRG++
+        double inner_m = m0;//pow(2, i + 1) * m0;
+        memset(aver_weights, 0, MAX_DIM * sizeof(double));
+        memset(full_grad, 0, MAX_DIM * sizeof(double));
+        // Full Gradient
+        for(size_t j = 0; j < N; j ++) {
+            full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                full_grad[k] += (X[j * MAX_DIM + k] * full_grad_core[j]) / (double) N;
             }
-            switch(Mode) {
-                case SVRG_LAST_LAST:
-                case SVRG_AVER_LAST:
-                    break;
-                case SVRG_AVER_AVER:
-                    copy_vec(inner_weights, model->get_model());
-                    break;
-                default:
-                    throw std::string("500 Internal Error.");
-                    break;
-            }
-            // INNER_LOOP
-            for(size_t j = 0; j < inner_m ; j ++) {
-                int rand_samp = distribution(generator);
-                double inner_core = model->first_component_oracle_core_dense(X, Y, N
-                    , rand_samp, inner_weights);
-                for(size_t k = 0; k < MAX_DIM; k ++) {
-                    double val = X[rand_samp * MAX_DIM + k];
-                    double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
-                             + inner_weights[k]* lambda[0] + full_grad[k];
-                    inner_weights[k] -= step_size * vr_sub_grad;
-                    aver_weights[k] += inner_weights[k] / inner_m;
-                }
-                total_iterations ++;
-            }
-            switch(Mode) {
-                case SVRG_LAST_LAST:
-                    model->update_model(inner_weights);
-                    break;
-                case SVRG_AVER_LAST:
-                case SVRG_AVER_AVER:
-                    model->update_model(aver_weights);
-                    break;
-                default:
-                    throw std::string("500 Internal Error.");
-                    break;
-            }
-            // For Matlab (per m/n passes)
-            if(is_store_result) {
-                stored_F->push_back(model->zero_oracle_dense(X, Y, N));
-            }
-            delete[] aver_weights;
-            delete[] full_grad_core;
         }
-        delete[] full_grad;
-        delete[] inner_weights;
-        if(is_store_result)
-            return stored_F;
-        return NULL;
+        switch(Mode) {
+            case SVRG_LAST_LAST:
+            case SVRG_AVER_LAST:
+                break;
+            case SVRG_AVER_AVER:
+                copy_vec(inner_weights, model->get_model());
+                break;
+            default:
+                throw std::string("500 Internal Error.");
+                break;
+        }
+        // INNER_LOOP
+        for(size_t j = 0; j < inner_m ; j ++) {
+            int rand_samp = distribution(generator);
+            double inner_core = model->first_component_oracle_core_dense(X, Y, N
+                , rand_samp, inner_weights);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                double val = X[rand_samp * MAX_DIM + k];
+                double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
+                         + inner_weights[k]* lambda[0] + full_grad[k];
+                inner_weights[k] -= step_size * vr_sub_grad;
+                aver_weights[k] += inner_weights[k] / inner_m;
+            }
+            total_iterations ++;
+        }
+        switch(Mode) {
+            case SVRG_LAST_LAST:
+                model->update_model(inner_weights);
+                break;
+            case SVRG_AVER_LAST:
+            case SVRG_AVER_AVER:
+                model->update_model(aver_weights);
+                break;
+            default:
+                throw std::string("500 Internal Error.");
+                break;
+        }
+        // For Matlab (per m/n passes)
+        if(is_store_result) {
+            stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+        }
+        delete[] aver_weights;
+        delete[] full_grad_core;
+    }
+    delete[] full_grad;
+    delete[] inner_weights;
+    if(is_store_result)
+        return stored_F;
+    return NULL;
 }
 
 // Only Applicable for L2 regularizer
 std::vector<double>* grad_desc_dense::Ada_SVRG(double* X, double* Y, size_t N, blackbox* model
     , size_t iteration_no, int Mode, double L, double step_size, bool is_store_result) {
-        // Random Generator
-        std::random_device rd;
-        std::default_random_engine generator(rd());
-        std::vector<double>* stored_F = new std::vector<double>;
-        double* SVRG_weights = new double[MAX_DIM];
-        double* full_grad = new double[MAX_DIM];
+    // Random Generator
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::vector<double>* stored_F = new std::vector<double>;
+    double* SVRG_weights = new double[MAX_DIM];
+    double* full_grad = new double[MAX_DIM];
 
-        size_t m0 = 400;
-        size_t n = m0;
-        size_t loop_no = 0;
-        double c = 0.000001 / (1.0 / sqrt((double) N));
-        double grad_norm = 0;
-        while(n < N) {
-            copy_vec(SVRG_weights, model->get_model());
-            if(loop_no != 0)
-                n = (2 * n <= N) ? 2 * n : N;
-            double Vn = 1.0 / sqrt((double) n);
-            double lambda = c * Vn;
-            double step_size_fixed = 0.1 / (L + c * Vn);
-            std::uniform_int_distribution<int> distribution(0, n - 1);
+    size_t m0 = 400;
+    size_t n = m0;
+    size_t loop_no = 0;
+    double c = 0.000001 / (1.0 / sqrt((double) N));
+    double grad_norm = 0;
+    while(n < N) {
+        copy_vec(SVRG_weights, model->get_model());
+        if(loop_no != 0)
+            n = (2 * n <= N) ? 2 * n : N;
+        double Vn = 1.0 / sqrt((double) n);
+        double lambda = c * Vn;
+        double step_size_fixed = 0.1 / (L + c * Vn);
+        std::uniform_int_distribution<int> distribution(0, n - 1);
 
+        // Comp grad
+        memset(full_grad, 0, MAX_DIM * sizeof(double));
+        for(size_t j = 0; j < n; j ++) {
+            double core = model->first_component_oracle_core_dense(X, Y, N, j);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                full_grad[k] += (X[j * MAX_DIM + k] * core) / (double) n;
+            }
+        }
+        for(size_t k = 0; k < MAX_DIM; k ++)
+            full_grad[k] += c * Vn * SVRG_weights[k];
+        grad_norm = comp_l2_norm(full_grad);
+        // OUTTER_LOOP
+        while(grad_norm > sqrt((double) 2 * c) * Vn) {
+            double* full_grad_core = new double[n];
+            double inner_m = n;
+            memset(full_grad, 0, MAX_DIM * sizeof(double));
+            // Full Gradient
+            for(size_t j = 0; j < n; j ++) {
+                full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    full_grad[k] += (X[j * MAX_DIM + k] * full_grad_core[j]) / (double) n;
+                }
+            }
+            // INNER_LOOP
+            for(size_t j = 0; j < inner_m ; j ++) {
+                int rand_samp = distribution(generator);
+                double inner_core = model->first_component_oracle_core_dense(X, Y, N
+                    , rand_samp, SVRG_weights);
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    double val = X[rand_samp * MAX_DIM + k];
+                    double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
+                             + SVRG_weights[k]* lambda + full_grad[k];
+                    SVRG_weights[k] -= step_size_fixed * vr_sub_grad;
+                }
+            // INNER_LOOP END
+            }
+            model->update_model(SVRG_weights);
             // Comp grad
             memset(full_grad, 0, MAX_DIM * sizeof(double));
             for(size_t j = 0; j < n; j ++) {
@@ -351,58 +389,21 @@ std::vector<double>* grad_desc_dense::Ada_SVRG(double* X, double* Y, size_t N, b
             for(size_t k = 0; k < MAX_DIM; k ++)
                 full_grad[k] += c * Vn * SVRG_weights[k];
             grad_norm = comp_l2_norm(full_grad);
-            // OUTTER_LOOP
-            while(grad_norm > sqrt((double) 2 * c) * Vn) {
-                double* full_grad_core = new double[n];
-                double inner_m = n;
-                memset(full_grad, 0, MAX_DIM * sizeof(double));
-                // Full Gradient
-                for(size_t j = 0; j < n; j ++) {
-                    full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
-                    for(size_t k = 0; k < MAX_DIM; k ++) {
-                        full_grad[k] += (X[j * MAX_DIM + k] * full_grad_core[j]) / (double) n;
-                    }
-                }
-                // INNER_LOOP
-                for(size_t j = 0; j < inner_m ; j ++) {
-                    int rand_samp = distribution(generator);
-                    double inner_core = model->first_component_oracle_core_dense(X, Y, N
-                        , rand_samp, SVRG_weights);
-                    for(size_t k = 0; k < MAX_DIM; k ++) {
-                        double val = X[rand_samp * MAX_DIM + k];
-                        double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
-                                 + SVRG_weights[k]* lambda + full_grad[k];
-                        SVRG_weights[k] -= step_size_fixed * vr_sub_grad;
-                    }
-                // INNER_LOOP END
-                }
-                model->update_model(SVRG_weights);
-                // Comp grad
-                memset(full_grad, 0, MAX_DIM * sizeof(double));
-                for(size_t j = 0; j < n; j ++) {
-                    double core = model->first_component_oracle_core_dense(X, Y, N, j);
-                    for(size_t k = 0; k < MAX_DIM; k ++) {
-                        full_grad[k] += (X[j * MAX_DIM + k] * core) / (double) n;
-                    }
-                }
-                for(size_t k = 0; k < MAX_DIM; k ++)
-                    full_grad[k] += c * Vn * SVRG_weights[k];
-                grad_norm = comp_l2_norm(full_grad);
-                delete[] full_grad_core;
-            // OUTTER_LOOP END
-            }
-            loop_no ++;
+            delete[] full_grad_core;
+        // OUTTER_LOOP END
         }
-        // For Matlab
-        if(is_store_result) {
-            stored_F->push_back(model->zero_oracle_dense(X, Y, N));
-        }
-        delete[] full_grad;
-        delete[] SVRG_weights;
+        loop_no ++;
+    }
+    // For Matlab
+    if(is_store_result) {
+        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+    }
+    delete[] full_grad;
+    delete[] SVRG_weights;
 
-        if(is_store_result)
-            return stored_F;
-        return NULL;
+    if(is_store_result)
+        return stored_F;
+    return NULL;
 }
 
 std::vector<double>* grad_desc_dense::Katyusha(double* X, double* Y, size_t N, blackbox* model

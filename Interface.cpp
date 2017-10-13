@@ -219,6 +219,19 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "SVRG_LS") == 0) {
+            size_t interval = (size_t) mxGetScalar(prhs[14]);
+            if(is_sparse)
+                mexErrMsgTxt("404 NOT DONE.");
+            else {
+                double r = mxGetScalar(prhs[15]);
+                double* SV = mxGetPr(prhs[16]);
+                vec_stored_F = grad_desc_acc_dense::SVRG_LS(X, Y, N, model, iteration_no, interval, Mode, L, step_size,
+                    r, SV, is_store_result);
+            }
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else if(strcmp(_algo, "Acc_Prox_SVRG1") == 0) {
             if(is_sparse)
                 mexErrMsgTxt("404 Not Done Yet.");
