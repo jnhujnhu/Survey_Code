@@ -91,6 +91,30 @@ std::vector<double>* grad_desc_acc_dense::SVRG_LS(double* X, double* Y, size_t N
     // Init Weight Evaluate
     if(is_store_result)
         stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+
+    double* ATA = new double[MAX_DIM * MAX_DIM];
+    double* ATb = new double[MAX_DIM];
+
+    // Compute ATA;
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        for(size_t j = 0; j < MAX_DIM; j ++) {
+            double temp = 0;
+            for(size_t k = 0; k < N; k ++) {
+                temp += X[k * MAX_DIM + i] * X[k* MAX_DIM + j];
+            }
+            ATA[i * MAX_DIM + j] = temp;
+        }
+    }
+
+    // Compute ATb;
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        double temp = 0;
+        for(size_t j = 0; j < N; j ++) {
+            temp += X[j * MAX_DIM + i] * Y[j];
+        }
+        ATb[i] = temp;
+    }
+
     // OUTTER_LOOP
     for(size_t i = 0 ; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
@@ -180,33 +204,40 @@ std::vector<double>* grad_desc_acc_dense::SVRG_LS(double* X, double* Y, size_t N
                 }
                 switch (LSM_Mode) {
                     case SVRG_LS_A:
-                        for(size_t k = 0; k < N; k ++) {
-                            double ADk = 0.0, AXk = 0.0;
+                        for(size_t k = 0; k < MAX_DIM; k ++) {
+                            double temp = 0;
                             for(size_t l = 0; l < MAX_DIM; l ++) {
-                                double val = X[k * MAX_DIM + l];
-                                ADk += val * ls_grad[l];
-                                AXk += val * inner_weights[l];
+                                temp += ls_grad[l] * ATA[l * MAX_DIM + k];
                             }
-                            DAAX += ADk * AXk;
-                            DAB += ADk * Y[k];
+                            DAAX += temp * inner_weights[k];
+                            DAB += ls_grad[k] * ATb[k];
+                        }
+                        for(size_t k = 0; k < N; k ++) {
+                            double ADk = 0.0;
+                            for(size_t l = 0; l < MAX_DIM; l ++) {
+                                ADk += X[k * MAX_DIM + l] * ls_grad[l];
+                            }
                             DAAD += ADk * ADk;
                         }
                         break;
                     case SVRG_LS_SVD:
-                        for(size_t k = 0; k < r; k ++) {
-                            double ADk = 0.0, AXk = 0.0;
+                        for(size_t k = 0; k < MAX_DIM; k ++) {
+                            double temp = 0;
                             for(size_t l = 0; l < MAX_DIM; l ++) {
-                                double val = SV[k * MAX_DIM + l];
-                                ADk += val * ls_grad[l];
-                                AXk += val * inner_weights[l];
+                                temp += ls_grad[l] * ATA[l * MAX_DIM + k];
                             }
-                            DAAX += ADk * AXk;
-                            DAB += ADk * Y[k];
+                            DAAX += temp * inner_weights[k];
+                            DAB += ls_grad[k] * ATb[k];
+                        }
+                        for(size_t k = 0; k < r; k ++) {
+                            double ADk = 0.0;
+                            for(size_t l = 0; l < MAX_DIM; l ++) {
+                                ADk += SV[k * MAX_DIM + l] * ls_grad[l];
+                            }
                             DAAD += ADk * ADk;
                         }
                         break;
                 }
-
                 double alpha = (N * lambda[0] * XD + DAAX - DAB)
                         / (DAAD + N * lambda[0] * DD);
                 for(size_t k = 0; k < MAX_DIM; k ++) {
