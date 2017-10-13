@@ -226,8 +226,11 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             else {
                 double r = mxGetScalar(prhs[15]);
                 double* SV = mxGetPr(prhs[16]);
-                vec_stored_F = grad_desc_acc_dense::SVRG_LS(X, Y, N, model, iteration_no, interval, Mode, L, step_size,
-                    r, SV, is_store_result);
+                int LSF_Mode = (int) mxGetScalar(prhs[17]);
+                int LSC_Mode = (int) mxGetScalar(prhs[18]);
+                int LSM_Mode = (int) mxGetScalar(prhs[19]);
+                vec_stored_F = grad_desc_acc_dense::SVRG_LS(X, Y, N, model, iteration_no, interval, Mode,
+                    LSF_Mode, LSC_Mode, LSM_Mode, L, step_size, r, SV, is_store_result);
             }
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();

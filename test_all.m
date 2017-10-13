@@ -20,7 +20,7 @@ passes = 300;
 model = 'least_square'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
-lambda1 = 10^(-7); % L2_norm / elastic_net
+lambda1 = 10^(-5); % L2_norm / elastic_net
 lambda2 = 10^(-5); % L1_norm / elastic_net
 L = (max(sum(X.^2, 1)) + lambda1); % For logistic regression
 sigma = lambda1;
@@ -36,11 +36,13 @@ step_size = 4 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
 tic;
-hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
+hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
 time = toc;
 fprintf('Time: %f seconds \n', time);
 X_SVRG = [0:3:passes]';
 hist1 = [X_SVRG, hist1];
+r = Dim;
+A = 0;
 
 
 %% SAGA
@@ -53,7 +55,6 @@ hist2 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, 
 time = toc;
 fprintf('Time: %f seconds \n', time);
 X_SAGA = [0 1 2:3:passes - 2]';
-% X_SGD = [0:1:passes - 1]';
 hist2 = [X_SAGA, hist2];
 clear X_SAGA;
 
@@ -63,7 +64,7 @@ algorithm = 'Katyusha';
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
 tic;
-hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
+hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
 time = toc;
 fprintf('Time: %f seconds \n', time);
 X_Katyusha = [0:3:passes]';
@@ -78,14 +79,12 @@ step_size = 9.6 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
 % for partial SVD(in dense case)
-r = Dim;
-A = 0;
-tic;
 % SVD for dense case
 if(~is_sparse)
-    [U, S, V] = svds(X', r);
+    [U, S, V] = svd(X', 'econ');
     A = (S * V')';
 end
+tic;
 hist4 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, r, A);
 time = toc;
 fprintf('Time: %f seconds \n', time);
@@ -98,15 +97,7 @@ interval = 3000; % Sufficient Decrease Iterate Interval
 step_size = 9.6 / (5 * L);
 loop = int64(passes / 2); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
-% for partial SVD(in dense case)
-r = Dim;
-A = 0;
 tic;
-% SVD for dense case
-if(~is_sparse)
-    [U, S, V] = svds(X', r);
-    A = (S * V')';
-end
 hist5 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, r, A);
 time = toc;
 fprintf('Time: %f seconds \n', time);
@@ -121,14 +112,7 @@ step_size = 4 / (5 * L);
 interval = 3000;
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
-r = Dim;
-A = 0;
 tic;
-% SVD for dense case
-if(~is_sparse)
-    [U, S, V] = svds(X', r);
-    A = (S * V')';
-end
 hist6 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, r, A);
 time = toc;
 fprintf('Time: %f seconds \n', time);
