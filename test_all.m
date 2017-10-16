@@ -31,7 +31,7 @@ fprintf('Model: %s-%s\n', regularizer, model);
 
 %% SVRG
 algorithm = 'SVRG';
-Mode = 2;
+Mode = 1;
 step_size = 4 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
@@ -72,11 +72,11 @@ hist2 = [X_SVRG, hist2];
 %
 % LSM_Mode: SVRG_LS_SVD = 8;
 % LSM_Mode: SVRG_LS_A = 9;
-LSF_Mode = 5;
+LSF_Mode = 4;
 LSC_Mode = 6;
-LSM_Mode = 9;
+LSM_Mode = 8;
 algorithm = 'SVRG_LS';
-Mode = 2;
+Mode = 1;
 step_size = 4 / (5 * L);
 interval = 3000;
 loop = int64(passes / 3); % 3 passes per loop

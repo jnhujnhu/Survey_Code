@@ -192,7 +192,6 @@ std::vector<double>* grad_desc_dense::Prox_SVRG(double* X, double* Y, size_t N, 
                 throw std::string("400 Unrecognized Mode.");
                 break;
         }
-        // double step_size = comp_l1_norm(full_grad);
         // INNER_LOOP
         for(size_t j = 0; j < inner_m; j ++) {
             int rand_samp = distribution(generator);

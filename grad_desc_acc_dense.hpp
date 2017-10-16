@@ -22,6 +22,10 @@ namespace grad_desc_acc_dense {
     std::vector<double>* SVRG_LS(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no
         , size_t interval, int Mode, int LSF_Mode, int LSC_Mode, int LSM_Mode
         , double L, double step_size, double r, double* SV, bool is_store_result);
+    std::vector<double>* Prox_SVRG_CP(double* X, double* Y, size_t N, blackbox* model
+        , size_t iteration_no, int Mode, double L, double step_size, bool is_store_result);
+    std::vector<double>* Prox_SVRG_SCP(double* X, double* Y, size_t N, blackbox* model
+        , size_t iteration_no, int Mode, double L, double step_size, bool is_store_result);
 }
 
 #endif

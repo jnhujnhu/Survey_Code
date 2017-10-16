@@ -244,6 +244,24 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "Prox_SVRG_CP") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("404 Not Done Yet.");
+            else
+                vec_stored_F = grad_desc_acc_dense::Prox_SVRG_CP(X, Y, N, model, iteration_no, Mode, L, step_size,
+                    is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "Prox_SVRG_SCP") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("404 Not Done Yet.");
+            else
+                vec_stored_F = grad_desc_acc_dense::Prox_SVRG_SCP(X, Y, N, model, iteration_no, Mode, L, step_size,
+                    is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else mexErrMsgTxt("400 Unrecognized algorithm.");
         delete[] _algo;
 

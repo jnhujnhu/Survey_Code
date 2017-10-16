@@ -37,7 +37,13 @@ void regularizer::first_oracle(int _regular, double* _pR, double* lambda, double
     memset(_pR, 0, MAX_DIM * sizeof(double));
     switch(_regular) {
         case regularizer::L1: {
-            //Not Available
+            // Subderivative
+            for(size_t i = 0; i < MAX_DIM; i ++) {
+                if(weight[i] >= 0)
+                    _pR[i] = lambda[1];
+                else
+                    _pR[i] = -lambda[1];
+            }
             break;
         }
         case regularizer::L2: {
@@ -47,7 +53,13 @@ void regularizer::first_oracle(int _regular, double* _pR, double* lambda, double
             break;
         }
         case regularizer::ELASTIC_NET: {
-            //Not Available
+            // Subderivative
+            for(size_t i = 0; i < MAX_DIM; i ++) {
+                if(weight[i] >= 0)
+                    _pR[i] = lambda[1] + lambda[0] * weight[i];
+                else
+                    _pR[i] = -lambda[1] + lambda[0] * weight[i];
+            }
             break;
         }
         default:
