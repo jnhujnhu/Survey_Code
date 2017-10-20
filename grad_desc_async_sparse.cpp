@@ -307,14 +307,14 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, si
         compos_pow[i] = pow((double)compos_factor, (double)i);
     double* y = new double[MAX_DIM];
     double* z = new double[MAX_DIM];
-    double* inner_weights = new double[MAX_DIM];
+    double* x = new double[MAX_DIM];
     double* full_grad = new double[MAX_DIM];
     // "Anticipate" Update Extra parameters
     double* reweight_diag = new double[MAX_DIM];
     // init vectors
     copy_vec(y, model->get_model());
     copy_vec(z, model->get_model());
-    copy_vec(inner_weights, model->get_model());
+    copy_vec(x, model->get_model());
     memset(reweight_diag, 0, MAX_DIM * sizeof(double));
     // Init Weight Evaluate
     if(is_store_result)
@@ -322,10 +322,22 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, si
     // OUTTER LOOP
     for(size_t i = 0; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
-        double* outter_weights = (model->get_model());
-        double* aver_weights = new double[MAX_DIM];
+        double* outter_x = (model->get_model());
+        double* aver_y = new double[MAX_DIM];
         memset(full_grad, 0, MAX_DIM * sizeof(double));
-        memset(aver_weights, 0, MAX_DIM * sizeof(double));
+        copy_vec(aver_y, y);
+        switch(regular) {
+            case regularizer::L2:
+            case regularizer::ELASTIC_NET: // Strongly Convex Case
+                break;
+            case regularizer::L1: // Non-Strongly Convex Case
+                tau_1 = 2.0 / ((double) i + 4.0);
+                alpha = 1.0 / (tau_1 * 3.0 * L);
+                break;
+            default:
+                throw std::string("500 Internal Error.");
+                break;
+        }
         // Full Gradient
         for(size_t j = 0; j < N; j ++) {
             full_grad_core[j] = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, j);
@@ -343,41 +355,58 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, si
 
         // 0th Inner Iteration
         for(size_t k = 0; k < MAX_DIM; k ++)
-            inner_weights[k] = tau_1 * z[k] + tau_2 * outter_weights[k]
+            x[k] = tau_1 * z[k] + tau_2 * outter_x[k]
                              + (1 - tau_1 - tau_2) * y[k];
         // INNER LOOP
         for(size_t j = 0; j < m; j ++) {
             int rand_samp = distribution(generator);
-            double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, inner_weights);
+            double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, x);
             for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
                 size_t index = Ir[k];
                 double val = X[k];
                 double katyusha_grad = reweight_diag[index] * full_grad[index] + val * (inner_core - full_grad_core[rand_samp]);
+                double prev_y = y[index], prev_z = z[index];
                 z[index] -= alpha * katyusha_grad;
                 regularizer::proximal_operator(regular, z[index], reweight_diag[index] * alpha, lambda);
-                y[index] = inner_weights[index] - step_size_y * katyusha_grad;
-                regularizer::proximal_operator(regular, y[index], reweight_diag[index] * step_size_y, lambda);
-                aver_weights[index] += compos_pow[j] / compos_base * y[index];
+
+                ////// For Katyusha With Update Option I //////
+                // y[index] = x[index] - step_size_y * katyusha_grad;
+                // regularizer::proximal_operator(regular, y[index], reweight_diag[index] * step_size_y, lambda);
+
+                ////// For Katyusha With Update Option II //////
+                y[index] = x[index] + tau_1 * (z[index] - prev_z);
+                switch(regular) {
+                    case regularizer::L2:
+                    case regularizer::ELASTIC_NET: // Strongly Convex Case
+                        aver_y[index] += (y[index] - prev_y)
+                                * equal_ratio2(compos_pow[j], compos_factor, compos_pow[m - j], m - j) / compos_base;
+                        break;
+                    case regularizer::L1: // Non-Strongly Convex Case
+                        aver_y[index] += (y[index] - prev_y) * (m - j) / m;
+                        break;
+                    default:
+                        throw std::string("500 Internal Error.");
+                        break;
+                }
                 // (j + 1)th Inner Iteration
                 if(j < m - 1)
-                    inner_weights[index] = tau_1 * z[index] + tau_2 * outter_weights[index]
+                    x[index] = tau_1 * z[index] + tau_2 * outter_x[index]
                                      + (1 - tau_1 - tau_2) * y[index];
             }
             total_iterations ++;
         }
 
-        // FIXME:
-        model->update_model(inner_weights);
-        delete[] aver_weights;
+        model->update_model(aver_y);
+        delete[] aver_y;
         delete[] full_grad_core;
         // For Matlab
         if(is_store_result) {
             stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
         }
     }
+    delete[] x;
     delete[] y;
     delete[] z;
-    delete[] inner_weights;
     delete[] full_grad;
     delete[] compos_pow;
     delete[] reweight_diag;

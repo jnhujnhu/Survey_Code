@@ -32,11 +32,19 @@ inline double comp_l1_norm(double* vec) {
     return res;
 }
 
+// q = p;
 inline double equal_ratio(double p, double pow_term, double times) {
     if(p == 1.0) // Degenerate Case.
         return p * times;
     else
         return p * (1 - pow_term) / (1 - p);
+}
+
+inline double equal_ratio2(double p, double q, double pow_term, double times) {
+    if(q == 1.0) // Degenerate Case.
+        return p * times;
+    else
+        return p * (1 - pow_term) / (1 - q);
 }
 
 inline void copy_vec(double* vec_to, double* vec_from) {
