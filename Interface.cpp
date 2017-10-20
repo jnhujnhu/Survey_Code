@@ -262,6 +262,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "SGD_SCP2") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("404 Not Done Yet.");
+            else
+                vec_stored_F = grad_desc_acc_dense::SGD_SCP2(X, Y, N, model, iteration_no, L, step_size,
+                    is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else mexErrMsgTxt("400 Unrecognized algorithm.");
         delete[] _algo;
 

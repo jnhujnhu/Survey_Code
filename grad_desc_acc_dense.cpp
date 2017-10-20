@@ -535,3 +535,238 @@ std::vector<double>* grad_desc_acc_dense::Prox_SVRG_SCP(double* X, double* Y, si
         return stored_F;
     return NULL;
 }
+
+std::vector<double>* grad_desc_acc_dense::SGD_SCP2(double* X, double* Y, size_t N, blackbox* model
+    , size_t iteration_no, double L, double step_size, bool is_store_result) {
+    // Random Generator
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, N - 1);
+    // std::vector<double>* stored_weights = new std::vector<double>;
+    std::vector<double>* stored_F = new std::vector<double>;
+    double* inner_weights = new double[MAX_DIM];
+    double* full_grad = new double[MAX_DIM];
+    double* full_grad_core = new double[N];
+    int regular = model->get_regularizer();
+    double* lambda = model->get_params();
+    size_t total_iterations = 0;
+    copy_vec(inner_weights, model->get_model());
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+
+    // Full Gradient
+    for(size_t j = 0; j < N; j ++) {
+        full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
+        for(size_t k = 0; k < MAX_DIM; k ++) {
+            full_grad[k] += X[j * MAX_DIM + k] * full_grad_core[j] / (double) N;
+        }
+    }
+    // Stochastic Hyperplane Coeffs
+
+    size_t n_hyperplane = 0;
+    int* Ih = new int[N];
+    std::vector<int>* Ir = new std::vector<int>;
+    double ro = 0;
+    double* _pR = new double[MAX_DIM];
+    regularizer::first_oracle(regular, _pR, lambda, model->get_model());
+    for(size_t j = 0; j < N; j ++) {
+        Ih[j] = -1;
+        double inner_Ff = 0;
+        for(size_t k = 0; k < MAX_DIM; k ++)
+            inner_Ff += (full_grad[k] + _pR[k])
+                    * (X[j * MAX_DIM + k] * full_grad_core[j] + _pR[k]);
+        if(inner_Ff > ro) {
+            Ir->push_back(j);
+            Ih[j] = n_hyperplane ++;
+        }
+    }
+    delete[] _pR;
+    double* grad_core_table = new double[n_hyperplane * MAX_DIM];
+    double* hyper_c_table = new double[n_hyperplane];
+    memset(grad_core_table, 0, n_hyperplane * MAX_DIM * sizeof(double));
+    memset(hyper_c_table, 0, n_hyperplane * sizeof(double));
+
+    for(size_t j = 0; j < n_hyperplane; j ++) {
+        for(size_t k = 0; k < MAX_DIM; k ++) {
+            grad_core_table[j * MAX_DIM + k] = X[(*Ir)[j] * MAX_DIM + k] * full_grad_core[(*Ir)[j]] + _pR[k];
+            hyper_c_table[j] += model->get_model()[k] * grad_core_table[j * MAX_DIM + k];
+        }
+    }
+    // OUTTER_LOOP
+    for(size_t i = 0 ; i < iteration_no; i ++) {
+        // INNER_LOOP
+        for(size_t j = 0; j < N; j ++) {
+            int rand_samp = distribution(generator);
+            double inner_core = model->first_component_oracle_core_dense(X, Y, N
+                , rand_samp, inner_weights);
+            double hyper_x = 0;
+            double* prev_x = new double[MAX_DIM];
+            int ix = Ih[rand_samp];
+            if(ix == -1) ix = 100;
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                double val = X[rand_samp * MAX_DIM + k];
+                double sub_grad = inner_core * val;
+                prev_x[k] = inner_weights[k];
+                inner_weights[k] -= step_size * sub_grad;
+                regularizer::proximal_operator(regular, inner_weights[k], step_size, lambda);
+                hyper_x += inner_weights[k] * grad_core_table[ix * MAX_DIM + k];
+
+            }
+            if(Ih[rand_samp] != -1 && hyper_x < hyper_c_table[ix]) {
+                double hyper_c = 0;
+                double* _pR = new double[MAX_DIM];
+                regularizer::first_oracle(regular, _pR, lambda, prev_x);
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    double val = X[rand_samp * MAX_DIM + k];
+                    double sub_grad = inner_core * val + _pR[k];
+                    hyper_c += prev_x[k] * sub_grad;
+                    grad_core_table[ix * MAX_DIM + k] = sub_grad;
+                }
+                hyper_c_table[ix] = hyper_c;
+                delete[] _pR;
+            }
+            else if(hyper_x > hyper_c_table[ix]) {
+                double inner_F = 0;
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    inner_F += grad_core_table[ix * MAX_DIM + k]
+                            * grad_core_table[ix * MAX_DIM + k];
+                }
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    inner_weights[k] = inner_weights[k] - grad_core_table[ix * MAX_DIM + k]
+                                * (hyper_x / inner_F - hyper_c_table[ix] / inner_F);
+                }
+            }
+            delete[] prev_x;
+            total_iterations ++;
+        }
+        model->update_model(inner_weights);
+        // For Matlab (per m/n passes)
+        if(is_store_result) {
+            stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+        }
+    }
+    delete[] full_grad_core;
+    delete[] grad_core_table;
+    delete[] hyper_c_table;
+    delete[] full_grad;
+    delete[] inner_weights;
+    if(is_store_result)
+        return stored_F;
+    return NULL;
+}
+
+// Not Done
+std::vector<double>* grad_desc_acc_dense::Katyusha_plus(double* X, double* Y, size_t N, blackbox* model
+    , size_t iteration_no, double L, double sigma, double step_size, bool is_store_result) {
+    // Random Generator
+    std::vector<double>* stored_F = new std::vector<double>;
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, N - 1);
+    size_t m = 2.0 * N;
+    size_t total_iterations = 0;
+    double tau_2 = 0.5, tau_1 = 0.5;
+    if(sqrt(sigma * m / (3.0 * L)) < 0.5) tau_1 = sqrt(sigma * m / (3.0 * L));
+    double alpha = 1.0 / (tau_1 * 3.0 * L);
+    int regular = model->get_regularizer();
+    double* lambda = model->get_params();
+    double step_size_y = 1.0 / (3.0 * L);
+    double compos_factor = 1.0 + alpha * sigma;
+    double compos_base = (pow((double)compos_factor, (double)m) - 1.0) / (alpha * sigma);
+    double* compos_pow = new double[m + 1];
+    for(size_t i = 0; i <= m; i ++)
+        compos_pow[i] = pow((double)compos_factor, (double)i);
+    double* y = new double[MAX_DIM];
+    double* z = new double[MAX_DIM];
+    double* inner_weights = new double[MAX_DIM];
+    double* full_grad = new double[MAX_DIM];
+    // init vectors
+    copy_vec(y, model->get_model());
+    copy_vec(z, model->get_model());
+    copy_vec(inner_weights, model->get_model());
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+    // OUTTER LOOP
+    for(size_t i = 0; i < iteration_no; i ++) {
+        double* full_grad_core = new double[N];
+        double* outter_weights = (model->get_model());
+        double* aver_weights = new double[MAX_DIM];
+        memset(full_grad, 0, MAX_DIM * sizeof(double));
+        memset(aver_weights, 0, MAX_DIM * sizeof(double));
+        switch(regular) {
+            case regularizer::L2:
+            case regularizer::ELASTIC_NET: // Strongly Convex Case
+                break;
+            case regularizer::L1: // Non-Strongly Convex Case
+                tau_1 = 2.0 / ((double) i + 4.0);
+                alpha = 1.0 / (tau_1 * 3.0 * L);
+                break;
+            default:
+                throw std::string("500 Internal Error.");
+                break;
+        }
+        // Full Gradient
+        for(size_t j = 0; j < N; j ++) {
+            full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                full_grad[k] += X[j * MAX_DIM + k] * full_grad_core[j] / (double) N;
+            }
+        }
+        // 0th Inner Iteration
+        for(size_t k = 0; k < MAX_DIM; k ++)
+            inner_weights[k] = tau_1 * z[k] + tau_2 * outter_weights[k]
+                             + (1 - tau_1 - tau_2) * y[k];
+        // INNER LOOP
+        for(size_t j = 0; j < m; j ++) {
+            int rand_samp = distribution(generator);
+            double inner_core = model->first_component_oracle_core_dense(X, Y, N, rand_samp, inner_weights);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                double val = X[rand_samp * MAX_DIM + k];
+                double katyusha_grad = full_grad[k] + val * (inner_core - full_grad_core[rand_samp]);
+                double prev_z = z[k];
+                z[k] -= alpha * katyusha_grad;
+                regularizer::proximal_operator(regular, z[k], alpha, lambda);
+                ////// For Katyusha With Update Option I //////
+                // y[k] = inner_weights[k] - step_size_y * katyusha_grad;
+                // regularizer::proximal_operator(regular, y[k], step_size_y, lambda);
+                ////// For Katyusha With Update Option II //////
+                y[k] = inner_weights[k] + tau_1 * (z[k] - prev_z);
+
+                switch(regular) {
+                    case regularizer::L2:
+                    case regularizer::ELASTIC_NET: // Strongly Convex Case
+                        aver_weights[k] += compos_pow[j] / compos_base * y[k];
+                        break;
+                    case regularizer::L1: // Non-Strongly Convex Case
+                        aver_weights[k] += y[k] / m;
+                        break;
+                    default:
+                        throw std::string("500 Internal Error.");
+                        break;
+                }
+                // (j + 1)th Inner Iteration
+                if(j < m - 1)
+                    inner_weights[k] = tau_1 * z[k] + tau_2 * outter_weights[k]
+                                     + (1 - tau_1 - tau_2) * y[k];
+            }
+            total_iterations ++;
+        }
+        model->update_model(aver_weights);
+        delete[] aver_weights;
+        delete[] full_grad_core;
+        // For Matlab
+        if(is_store_result) {
+            stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+        }
+    }
+    delete[] y;
+    delete[] z;
+    delete[] inner_weights;
+    delete[] full_grad;
+    delete[] compos_pow;
+    if(is_store_result)
+        return stored_F;
+    return NULL;
+}

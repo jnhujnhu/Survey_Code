@@ -133,6 +133,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, si
                 break;
             case SVRG_AVER_AVER:
                 copy_vec(inner_weights, model->get_model());
+                copy_vec(aver_weights, model->get_model());
                 break;
             default:
                 throw std::string("400 Unrecognized Mode.");
@@ -148,10 +149,11 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, si
                 double val = X[k];
                 double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
                             + reweight_diag[index] * full_grad[index];
+                double prev_x = inner_weights[index];
                 inner_weights[index] -= step_size * vr_sub_grad;
-                // FIXME: Average Scheme
-                aver_weights[index] += regularizer::proximal_operator(regular, inner_weights[index]
-                    , reweight_diag[index] * step_size, lambda) / inner_m;
+                regularizer::proximal_operator(regular, inner_weights[index]
+                        , reweight_diag[index] * step_size, lambda);
+                aver_weights[index] += (inner_weights[index] - prev_x) * (inner_m - j) / inner_m;
             }
             total_iterations ++;
         }

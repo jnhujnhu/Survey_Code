@@ -258,13 +258,21 @@ double regularizer::proximal_operator(int _regular, double& _prox, double step_s
                 _prox = (_prox + C) / (1 + step_size * lambda[0]);
                 return _prox;
             }
-            double param_1 = step_size * lambda[0];
-            double param_2 = pow((double) 1.0 / (1 + param_1), (double) times);
-            double param_3 = C / param_1;
-            if(is_averaged)
-                lazy_average = (_prox - param_3) * (1 - param_2) / param_1 + param_3 * times;
-            _prox = _prox * param_2 + param_3 * (1 - param_2);
-            return lazy_average;
+            if(lambda[0] != 0.0) {
+                double param_1 = step_size * lambda[0];
+                double param_2 = pow((double) 1.0 / (1 + param_1), (double) times);
+                double param_3 = C / param_1;
+                if(is_averaged)
+                    lazy_average = (_prox - param_3) * (1 - param_2) / param_1 + param_3 * times;
+                _prox = _prox * param_2 + param_3 * (1 - param_2);
+                return lazy_average;
+            }
+            else {
+                if(is_averaged)
+                    lazy_average = times * _prox + C * (1 + times) * times / 2.0;
+                _prox = _prox + times * C;
+                return lazy_average;
+            }
             break;
         }
         case regularizer::ELASTIC_NET: {

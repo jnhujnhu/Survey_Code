@@ -26,6 +26,10 @@ namespace grad_desc_acc_dense {
         , size_t iteration_no, int Mode, double L, double step_size, bool is_store_result);
     std::vector<double>* Prox_SVRG_SCP(double* X, double* Y, size_t N, blackbox* model
         , size_t iteration_no, int Mode, double L, double step_size, bool is_store_result);
+    std::vector<double>* SGD_SCP2(double* X, double* Y, size_t N, blackbox* model
+        , size_t iteration_no, double L, double step_size, bool is_store_result);
+    std::vector<double>* Katyusha_plus(double* X, double* Y, size_t N, blackbox* model
+        , size_t iteration_no, double L, double sigma, double step_size, bool is_store_result);
 }
 
 #endif
