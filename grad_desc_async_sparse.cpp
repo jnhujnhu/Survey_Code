@@ -1,14 +1,62 @@
 #include "grad_desc_async_sparse.hpp"
 #include "utils.hpp"
 #include "regularizer.hpp"
+#include <atomic>
 #include <random>
 #include <cmath>
+#include <thread>
 #include <string.h>
 
 extern size_t MAX_DIM;
 
+void grad_desc_async_sparse::Partial_Gradient(double* full_grad_core, size_t thread_no
+    , double* X, double* Y, size_t* Jc, size_t* Ir, std::atomic<double>* full_grad
+    , size_t N, blackbox* model, size_t _thread, double* _weights, double* reweight_diag) {
+    double* _pf = new double[MAX_DIM];
+    memset(_pf, 0, MAX_DIM * sizeof(double));
+    for(size_t i = floor((double) N / thread_no * (_thread - 1.0));
+            i < floor((double) N / thread_no * _thread);
+            i ++) {
+        full_grad_core[i] = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, i, _weights);
+        for(size_t j = Jc[i]; j < Jc[i + 1]; j ++) {
+            _pf[Ir[j]] += X[j] * full_grad_core[i] / (double) N;
+            // Compute Re-weight Matrix(Inversed) in First Pass
+            if(reweight_diag != NULL)
+                reweight_diag[Ir[j]] += 1.0 / (double) N;
+        }
+    }
+    // Atomic Write
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        double o_grad = full_grad[i].load();
+        while(!full_grad[i].compare_exchange_weak(o_grad, o_grad + _pf[i]))
+            ;
+    }
+    delete[] _pf;
+}
+
+double* grad_desc_async_sparse::Comp_Full_Grad_Parallel(double* full_grad_core, size_t thread_no
+    , double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model, double* _weights
+    , double* reweight_diag) {
+    // Thread Pool
+    std::vector<std::thread> thread_pool;
+    std::atomic<double>* full_grad = new std::atomic<double>[MAX_DIM];
+    //std::atomic_init(full_grad, 0.0);
+    for(size_t i = 0; i < MAX_DIM; i ++) full_grad[i] = 0;
+    for(size_t i = 1; i <= thread_no; i ++) {
+        thread_pool.push_back(std::thread(Partial_Gradient, full_grad_core, thread_no
+            , X, Y, Jc, Ir, full_grad, N, model, i, _weights, reweight_diag));
+    }
+    for(auto &t : thread_pool)
+        t.join();
+    double* full_grad_n = new double[MAX_DIM];
+    for(size_t i = 0; i < MAX_DIM; i ++)
+        full_grad_n[i] = full_grad[i];
+    delete[] full_grad;
+    return full_grad_n;
+}
+
 std::vector<double>* grad_desc_async_sparse::ASAGA(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
-    , blackbox* model, size_t iteration_no, double L, double step_size, bool is_store_result) {
+    , blackbox* model, size_t iteration_no, size_t thread_no, double L, double step_size, bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
@@ -82,7 +130,7 @@ std::vector<double>* grad_desc_async_sparse::ASAGA(double* X, double* Y, size_t*
 }
 
 std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, size_t* Jc, size_t* Ir
-    , size_t N, blackbox* model, size_t iteration_no, int Mode, double L, double step_size
+    , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, int Mode, double L, double step_size
     , bool is_store_result) {
     // Random Generator
     std::random_device rd;
@@ -184,109 +232,22 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, si
     return NULL;
 }
 
-// Only L2, TODO: Implement Real Asynchronous SVRG (AsySVRG)
-std::vector<double>* grad_desc_async_sparse::ASVRG(double* X, double* Y, size_t* Jc, size_t* Ir
-    , size_t N, blackbox* model, size_t iteration_no, int Mode, double L
+std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, size_t* Jc, size_t* Ir
+    , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, double L, double sigma
     , double step_size, bool is_store_result) {
-        // Random Generator
-        std::random_device rd;
-        std::default_random_engine generator(rd());
-        std::uniform_int_distribution<int> distribution(0, N - 1);
-        std::vector<double>* stored_F = new std::vector<double>;
-        double* inner_weights = new double[MAX_DIM];
-        double* full_grad = new double[MAX_DIM];
-        // "Anticipate" Update Extra parameters
-        double* reweight_diag = new double[MAX_DIM];
-        double* lambda = model->get_params();
-        //FIXME: Epoch Size(SVRG / SVRG++)
-        double m0 = (double) N * 2.0;
-        size_t total_iterations = 0;
-        memset(reweight_diag, 0, MAX_DIM * sizeof(double));
-        copy_vec(inner_weights, model->get_model());
-        // Init Weight Evaluate
-        if(is_store_result)
-            stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-        // OUTTER_LOOP
-        for(size_t i = 0 ; i < iteration_no; i ++) {
-            double* full_grad_core = new double[N];
-            // Average Iterates
-            double* aver_weights = new double[MAX_DIM];
-            //FIXME: SVRG / SVRG++
-            double inner_m = m0;//pow(2, i + 1) * m0;
-            memset(aver_weights, 0, MAX_DIM * sizeof(double));
-            memset(full_grad, 0, MAX_DIM * sizeof(double));
-            // Full Gradient
-            for(size_t j = 0; j < N; j ++) {
-                full_grad_core[j] = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, j);
-                for(size_t k = Jc[j]; k < Jc[j + 1]; k ++) {
-                    full_grad[Ir[k]] += (X[k] * full_grad_core[j]) / (double) N;
-                    // Compute Re-weight Matrix(Inversed) in First Pass
-                    if(i == 0)
-                        reweight_diag[Ir[k]] += 1.0 / (double) N;
-                }
-            }
-            // Compute Re-weight Matrix in First Pass
-            if(i == 0)
-                for(size_t j = 0; j < MAX_DIM; j ++)
-                    reweight_diag[j] = 1.0 / reweight_diag[j];
-
-            switch(Mode) {
-                case SVRG_LAST_LAST:
-                case SVRG_AVER_LAST:
-                    break;
-                case SVRG_AVER_AVER:
-                    copy_vec(inner_weights, model->get_model());
-                    break;
-                default:
-                    throw std::string("400 Unrecognized Mode.");
-                    break;
-            }
-            // INNER_LOOP
-            for(size_t j = 0; j < inner_m ; j ++) {
-                int rand_samp = distribution(generator);
-                double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N
-                    , rand_samp, inner_weights);
-                for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
-                    size_t index = Ir[k];
-                    double val = X[k];
-                    double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
-                             + (inner_weights[index] + model->get_model()[index] * (reweight_diag[index] - 1) ) * lambda[0]
-                             + reweight_diag[index] * full_grad[index];
-                    inner_weights[index] -= step_size * vr_sub_grad;
-                    aver_weights[index] += inner_weights[index] / inner_m;
-                }
-                total_iterations ++;
-            }
-            switch(Mode) {
-                case SVRG_LAST_LAST:
-                    model->update_model(inner_weights);
-                    break;
-                case SVRG_AVER_LAST:
-                case SVRG_AVER_AVER:
-                    model->update_model(aver_weights);
-                    break;
-                default:
-                    throw std::string("500 Internal Error.");
-                    break;
-            }
-            // For Matlab (per m/n passes)
-            if(is_store_result) {
-                stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-            }
-            delete[] aver_weights;
-            delete[] full_grad_core;
-        }
-        delete[] full_grad;
-        delete[] inner_weights;
-        delete[] reweight_diag;
-        if(is_store_result)
-            return stored_F;
-        return NULL;
+    if(thread_no == 1) {
+        return A_Katyusha_Single(X, Y, Jc, Ir, N, model, iteration_no, L, sigma
+            , step_size, is_store_result);
+    }
+    else {
+        return A_Katyusha_Async(X, Y, Jc, Ir, N, model, iteration_no, thread_no
+            , L, sigma, step_size, is_store_result);
+    }
 }
 
-std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, size_t* Jc, size_t* Ir
-    , size_t N, blackbox* model, size_t iteration_no, double L, double sigma
-    , double step_size, bool is_store_result) {
+std::vector<double>* grad_desc_async_sparse::A_Katyusha_Single(double* X, double* Y
+    , size_t* Jc, size_t* Ir, size_t N, blackbox* model, size_t iteration_no, double L
+    , double sigma, double step_size, bool is_store_result) {
     // Random Generator
     std::vector<double>* stored_F = new std::vector<double>;
     std::random_device rd;
@@ -414,3 +375,276 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, si
         return stored_F;
     return NULL;
 }
+
+void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
+    , size_t* Jc, size_t* Ir, size_t N, std::atomic<double>* x, std::atomic<double>* y
+    , std::atomic<double>* z, std::atomic<double>* aver_y, blackbox* model, size_t m, size_t inner_iters
+    , double L, double sigma, double step_size, double tau_1, double tau_2, double alpha
+    , double compos_factor, double compos_base, double* reweight_diag, double* full_grad_core
+    , double* full_grad, double* compos_pow, double* outter_x) {
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, N - 1);
+    int regular = model->get_regularizer();
+    double* lambda = model->get_params();
+    for(size_t j = 0; j < inner_iters; j ++) {
+        int rand_samp = distribution(generator);
+        double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, (double*) x);
+        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+            size_t index = Ir[k];
+            double val = X[k];
+            double katyusha_grad = reweight_diag[index] * full_grad[index] + val * (inner_core - full_grad_core[rand_samp]);
+            double prev_y = y[index], prev_z = z[index];
+            double temp_z = z[index] - alpha * katyusha_grad;
+            z[index] = regularizer::proximal_operator(regular, temp_z, reweight_diag[index] * alpha, lambda);
+
+            ////// For Katyusha With Update Option I //////
+            // y[index] = x[index] - step_size_y * katyusha_grad;
+            // regularizer::proximal_operator(regular, y[index], reweight_diag[index] * step_size_y, lambda);
+
+            ////// For Katyusha With Update Option II //////
+            y[index] = x[index] + tau_1 * (z[index] - prev_z);
+            double increment = y[index] - prev_y;
+            switch(regular) {
+                case regularizer::L2:
+                case regularizer::ELASTIC_NET:{ // Strongly Convex Case
+                    double o_aver = aver_y[index].load();
+                    while(!aver_y[index].compare_exchange_weak(o_aver, o_aver + increment
+                            * equal_ratio2(compos_pow[j], compos_factor, compos_pow[m - j], m - j) / compos_base))
+                        ;
+                    break;
+                }
+                case regularizer::L1:{ // Non-Strongly Convex Case
+                    double o_aver = aver_y[index].load();
+                    while(!aver_y[index].compare_exchange_weak(o_aver, o_aver + increment
+                            * (m - j) / m))
+                        ;
+                    break;
+                }
+                default:
+                    throw std::string("500 Internal Error.");
+                    break;
+            }
+            // (j + 1)th Inner Iteration
+            if(j < m - 1)
+                x[index] = tau_1 * z[index] + tau_2 * outter_x[index]
+                                 + (1 - tau_1 - tau_2) * y[index];
+        }
+    }
+}
+
+std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double* Y
+    , size_t* Jc, size_t* Ir, size_t N, blackbox* model, size_t iteration_no, size_t thread_no
+    , double L, double sigma, double step_size, bool is_store_result) {
+    // Random Generator
+    std::vector<double>* stored_F = new std::vector<double>;
+    size_t m = 2.0 * N;
+    int regular = model->get_regularizer();
+    double tau_2 = 0.5, tau_1 = 0.5;
+    if(sqrt(sigma * m / (3.0 * L)) < 0.5) tau_1 = sqrt(sigma * m / (3.0 * L));
+    double alpha = 1.0 / (tau_1 * 3.0 * L);
+    double step_size_y = 1.0 / (3.0 * L);
+    double compos_factor = 1.0 + alpha * sigma;
+    double compos_base = (pow((double)compos_factor, (double)m) - 1.0) / (alpha * sigma);
+    double* compos_pow = new double[m + 1];
+    for(size_t i = 0; i <= m; i ++)
+        compos_pow[i] = pow((double)compos_factor, (double)i);
+    std::atomic<double>* y = new std::atomic<double>[MAX_DIM];
+    std::atomic<double>* z = new std::atomic<double>[MAX_DIM];
+    std::atomic<double>* x = new std::atomic<double>[MAX_DIM];
+    std::atomic<double>* aver_y = new std::atomic<double>[MAX_DIM];
+    // "Anticipate" Update Extra parameters
+    double* reweight_diag = new double[MAX_DIM];
+    // init vectors
+    copy_vec_nonatomic(y, model->get_model());
+    copy_vec_nonatomic(z, model->get_model());
+    copy_vec_nonatomic(x, model->get_model());
+    memset(reweight_diag, 0, MAX_DIM * sizeof(double));
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
+    // OUTTER LOOP
+    for(size_t i = 0; i < iteration_no; i ++) {
+        double* full_grad_core = new double[N];
+        double* outter_x = (model->get_model());
+        copy_vec_atomic(aver_y, y);
+        switch(regular) {
+            case regularizer::L2:
+            case regularizer::ELASTIC_NET: // Strongly Convex Case
+                break;
+            case regularizer::L1: // Non-Strongly Convex Case
+                tau_1 = 2.0 / ((double) i + 4.0);
+                alpha = 1.0 / (tau_1 * 3.0 * L);
+                break;
+            default:
+                throw std::string("500 Internal Error.");
+                break;
+        }
+
+        double* full_grad;
+        if(i == 0) {
+            full_grad = Comp_Full_Grad_Parallel(full_grad_core, thread_no
+                , X, Y, Jc, Ir, N, model, outter_x, reweight_diag);
+            // Compute Re-weight Matrix in First Pass
+            for(size_t j = 0; j < MAX_DIM; j ++)
+                reweight_diag[j] = 1.0 / reweight_diag[j];
+        }
+        else
+            full_grad = Comp_Full_Grad_Parallel(full_grad_core, thread_no
+                , X, Y, Jc, Ir, N, model, outter_x);
+
+        // double* test = new double[MAX_DIM];
+        // memset(test, 0, MAX_DIM * sizeof(double));
+        // for(size_t j = 0; j < N; j ++) {
+        //     double a = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, j);
+        //     for(size_t k = Jc[j]; k < Jc[j + 1]; k ++) {
+        //         test[Ir[k]] += X[k] * a / (double) N;
+        //     }
+        // }
+        //
+        // for(size_t s = 0; s < MAX_DIM; s ++) {
+        //     if(std::abs(test[s] - full_grad[s]) > 0.7) {
+        //         throw std::to_string(test[s]) + " " + std::to_string(full_grad[s]);
+        //     }
+        // }
+
+        // 0th Inner Iteration
+        for(size_t k = 0; k < MAX_DIM; k ++)
+            x[k] = tau_1 * z[k] + tau_2 * outter_x[k]
+                             + (1 - tau_1 - tau_2) * y[k];
+        // Parallel INNER LOOP
+        std::vector<std::thread> thread_pool;
+        for(size_t k = 1; k <= thread_no; k ++) {
+            size_t inner_iters;
+            if(k == 1)
+                inner_iters = m - m / thread_no * thread_no + m / thread_no;
+            else
+                inner_iters = m / thread_no;
+
+            thread_pool.push_back(std::thread(A_Katyusha_Async_Inner_Loop, X, Y
+                , Jc, Ir, N, x, y, z, aver_y, model, m, inner_iters, L, sigma
+                , step_size, tau_1, tau_2, alpha, compos_factor, compos_base
+                , reweight_diag, full_grad_core, full_grad, compos_pow, outter_x));
+        }
+        for(auto& t : thread_pool)
+            t.join();
+        double* na_aver_y = new double[MAX_DIM];
+        copy_vec_re_nonatomic(na_aver_y, aver_y);
+        model->update_model(na_aver_y);
+
+        delete[] full_grad_core;
+        // For Matlab
+        if(is_store_result) {
+            stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
+        }
+    }
+    delete[] x;
+    delete[] y;
+    delete[] z;
+    delete[] aver_y;
+    delete[] compos_pow;
+    delete[] reweight_diag;
+    if(is_store_result)
+        return stored_F;
+    return NULL;
+}
+
+// // Only L2, TODO: Implement Real Asynchronous SVRG (AsySVRG)
+// std::vector<double>* grad_desc_async_sparse::ASVRG(double* X, double* Y, size_t* Jc, size_t* Ir
+//     , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, int Mode, double L
+//     , double step_size, bool is_store_result) {
+//         // Random Generator
+//         std::random_device rd;
+//         std::default_random_engine generator(rd());
+//         std::uniform_int_distribution<int> distribution(0, N - 1);
+//         std::vector<double>* stored_F = new std::vector<double>;
+//         double* inner_weights = new double[MAX_DIM];
+//         double* full_grad = new double[MAX_DIM];
+//         // "Anticipate" Update Extra parameters
+//         double* reweight_diag = new double[MAX_DIM];
+//         double* lambda = model->get_params();
+//         //FIXME: Epoch Size(SVRG / SVRG++)
+//         double m0 = (double) N * 2.0;
+//         size_t total_iterations = 0;
+//         memset(reweight_diag, 0, MAX_DIM * sizeof(double));
+//         copy_vec(inner_weights, model->get_model());
+//         // Init Weight Evaluate
+//         if(is_store_result)
+//             stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
+//         // OUTTER_LOOP
+//         for(size_t i = 0 ; i < iteration_no; i ++) {
+//             double* full_grad_core = new double[N];
+//             // Average Iterates
+//             double* aver_weights = new double[MAX_DIM];
+//             //FIXME: SVRG / SVRG++
+//             double inner_m = m0;//pow(2, i + 1) * m0;
+//             memset(aver_weights, 0, MAX_DIM * sizeof(double));
+//             memset(full_grad, 0, MAX_DIM * sizeof(double));
+//             // Full Gradient
+//             for(size_t j = 0; j < N; j ++) {
+//                 full_grad_core[j] = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, j);
+//                 for(size_t k = Jc[j]; k < Jc[j + 1]; k ++) {
+//                     full_grad[Ir[k]] += (X[k] * full_grad_core[j]) / (double) N;
+//                     // Compute Re-weight Matrix(Inversed) in First Pass
+//                     if(i == 0)
+//                         reweight_diag[Ir[k]] += 1.0 / (double) N;
+//                 }
+//             }
+//             // Compute Re-weight Matrix in First Pass
+//             if(i == 0)
+//                 for(size_t j = 0; j < MAX_DIM; j ++)
+//                     reweight_diag[j] = 1.0 / reweight_diag[j];
+//
+//             switch(Mode) {
+//                 case SVRG_LAST_LAST:
+//                 case SVRG_AVER_LAST:
+//                     break;
+//                 case SVRG_AVER_AVER:
+//                     copy_vec(inner_weights, model->get_model());
+//                     break;
+//                 default:
+//                     throw std::string("400 Unrecognized Mode.");
+//                     break;
+//             }
+//             // INNER_LOOP
+//             for(size_t j = 0; j < inner_m ; j ++) {
+//                 int rand_samp = distribution(generator);
+//                 double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N
+//                     , rand_samp, inner_weights);
+//                 for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+//                     size_t index = Ir[k];
+//                     double val = X[k];
+//                     double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
+//                              + (inner_weights[index] + model->get_model()[index] * (reweight_diag[index] - 1) ) * lambda[0]
+//                              + reweight_diag[index] * full_grad[index];
+//                     inner_weights[index] -= step_size * vr_sub_grad;
+//                     aver_weights[index] += inner_weights[index] / inner_m;
+//                 }
+//                 total_iterations ++;
+//             }
+//             switch(Mode) {
+//                 case SVRG_LAST_LAST:
+//                     model->update_model(inner_weights);
+//                     break;
+//                 case SVRG_AVER_LAST:
+//                 case SVRG_AVER_AVER:
+//                     model->update_model(aver_weights);
+//                     break;
+//                 default:
+//                     throw std::string("500 Internal Error.");
+//                     break;
+//             }
+//             // For Matlab (per m/n passes)
+//             if(is_store_result) {
+//                 stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
+//             }
+//             delete[] aver_weights;
+//             delete[] full_grad_core;
+//         }
+//         delete[] full_grad;
+//         delete[] inner_weights;
+//         delete[] reweight_diag;
+//         if(is_store_result)
+//             return stored_F;
+//         return NULL;
+// }

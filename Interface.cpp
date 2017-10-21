@@ -144,15 +144,6 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
-        else if(strcmp(_algo, "ASVRG") == 0) {
-            if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
-            if(regularizer != regularizer::L2)
-                mexErrMsgTxt("405 SVRG not applicable to non-differentiable regularizer.");
-            vec_stored_F = grad_desc_async_sparse::ASVRG(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, step_size,
-                is_store_result);
-            stored_F = &(*vec_stored_F)[0];
-            len_stored_F = vec_stored_F->size();
-        }
         else if(strcmp(_algo, "Ada_SVRG") == 0) {
             if(regularizer == regularizer::L1)
                 mexErrMsgTxt("405 Ada_SVRG not applicable to L1 regularizer.");
@@ -184,10 +175,11 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             len_stored_F = vec_stored_F->size();
         }
         else if(strcmp(_algo, "A_Katyusha") == 0) {
+            size_t thread_no = (size_t) mxGetScalar(prhs[14]);
             if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
             else
-                vec_stored_F = grad_desc_async_sparse::A_Katyusha(X, Y, Jc, Ir, N, model, iteration_no, L, sigma, step_size,
-                    is_store_result);
+                vec_stored_F = grad_desc_async_sparse::A_Katyusha(X, Y, Jc, Ir, N, model, iteration_no, thread_no, L
+                    , sigma, step_size, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }

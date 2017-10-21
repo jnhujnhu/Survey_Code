@@ -1,5 +1,6 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
+#include <atomic>
 #include <cmath>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,6 +51,25 @@ inline double equal_ratio2(double p, double q, double pow_term, double times) {
 inline void copy_vec(double* vec_to, double* vec_from) {
     for(size_t i = 0; i < MAX_DIM; i ++)
         vec_to[i] = vec_from[i];
+}
+
+inline void copy_vec_atomic(std::atomic<double>* vec_to, std::atomic<double>* vec_from) {
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        double temp = vec_from[i];
+        vec_to[i] = temp;
+    }
+}
+
+inline void copy_vec_nonatomic(std::atomic<double>* vec_to, double* vec_from) {
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        vec_to[i] = vec_from[i];
+    }
+}
+
+inline void copy_vec_re_nonatomic(double* vec_to, std::atomic<double>* vec_from) {
+    for(size_t i = 0; i < MAX_DIM; i ++) {
+        vec_to[i] = vec_from[i];
+    }
 }
 
 inline double max(double a, double b) {

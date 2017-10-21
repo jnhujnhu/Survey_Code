@@ -1,7 +1,7 @@
 clear;mex_all;
 %load 'real-sim.mat';
-load 'rcv1_train.binary.mat';
-%load 'a9a.mat';
+%load 'rcv1_train.binary.mat';
+load 'a9a.mat';
 %load 'Covtype.mat';
 
 %% Parse Data
@@ -30,72 +30,73 @@ Mode = 1;
 is_plot = true;
 fprintf('Model: %s-%s\n', regularizer, model);
 
-%% Prox_ASVRG
-algorithm = 'Prox_ASVRG';
-Mode = 2;
+% %% Prox_ASVRG
+% algorithm = 'Prox_ASVRG';
+% Mode = 2;
 step_size = 1 / (5 * L);
-loop = int64(passes / 3); % 3 passes per loop
-fprintf('Algorithm: %s\n', algorithm);
-tic;
-hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
-time = toc;
-fprintf('Time: %f seconds \n', time);
-X_SVRG = [0:3:passes]';
-hist1 = [X_SVRG, hist1];
-
-%% Prox_SVRG
-algorithm = 'Prox_SVRG';
-loop = int64(passes / 3); % 3 passes per loop
-fprintf('Algorithm: %s\n', algorithm);
-tic;
-hist2 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
-time = toc;
-fprintf('Time: %f seconds \n', time);
-hist2 = [X_SVRG, hist2];
-
-%% Prox_SVRG
-algorithm = 'Prox_SVRG';
-loop = int64(passes / 3); % 3 passes per loop
-Mode = 1;
-fprintf('Algorithm: %s\n', algorithm);
-tic;
-hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
-time = toc;
-fprintf('Time: %f seconds \n', time);
-hist3 = [X_SVRG, hist3];
-
-
-%% Prox_ASVRG
-algorithm = 'Prox_ASVRG';
-loop = int64(passes / 3); % 3 passes per loop
-fprintf('Algorithm: %s\n', algorithm);
-tic;
-hist4 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
-time = toc;
-fprintf('Time: %f seconds \n', time);
-hist4 = [X_SVRG, hist4];
-clear X_SVRG;
-
-%% Katyusha
-algorithm = 'Katyusha';
+% loop = int64(passes / 3); % 3 passes per loop
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% X_SVRG = [0:3:passes]';
+% hist1 = [X_SVRG, hist1];
+%
+% %% Prox_SVRG
+% algorithm = 'Prox_SVRG';
+% loop = int64(passes / 3); % 3 passes per loop
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist2 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% hist2 = [X_SVRG, hist2];
+%
+% %% Prox_SVRG
+% algorithm = 'Prox_SVRG';
+% loop = int64(passes / 3); % 3 passes per loop
+% Mode = 1;
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% hist3 = [X_SVRG, hist3];
+%
+%
+% %% Prox_ASVRG
+% algorithm = 'Prox_ASVRG';
+% loop = int64(passes / 3); % 3 passes per loop
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist4 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% hist4 = [X_SVRG, hist4];
+% clear X_SVRG;
+%
+% %% Katyusha
+% algorithm = 'Katyusha';
 sigma = lambda1;
-% Fixed step_size
-loop = int64(passes / 3); % 3 passes per loop
-fprintf('Algorithm: %s\n', algorithm);
-tic;
-hist5 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
-time = toc;
-fprintf('Time: %f seconds \n', time);
+% % Fixed step_size
+% loop = int64(passes / 3); % 3 passes per loop
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist5 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
 X_Katyusha = [0:3:passes]';
-hist5 = [X_Katyusha, hist5];
+% hist5 = [X_Katyusha, hist5];
 
 %% A_Katyusha
 algorithm = 'A_Katyusha';
 % Fixed step_size
+thread_no = 2;
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
 tic;
-hist6 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
+hist6 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, thread_no);
 time = toc;
 fprintf('Time: %f seconds \n', time);
 hist6 = [X_Katyusha, hist6];
