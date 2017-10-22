@@ -72,6 +72,12 @@ inline void copy_vec_re_nonatomic(double* vec_to, std::atomic<double>* vec_from)
     }
 }
 
+inline void fetch_n_add_atomic(std::atomic<double> &atom, double increment) {
+    double o_atom = atom.load();
+    while(!atom.compare_exchange_weak(o_atom, o_atom + increment))
+        ;
+}
+
 inline double max(double a, double b) {
     return a > b ? a : b;
 }
