@@ -80,7 +80,6 @@ std::vector<double>* grad_desc_async_sparse::ASAGA_Single(double* X, double* Y, 
 }
 
 std::atomic<int> pass_counter(0);
-std::mutex counter_mutex;
 void grad_desc_async_sparse::ASAGA_Async_Loop(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
     , std::atomic<double>* x, blackbox* model, size_t inner_iters, double step_size
     , double* reweight_diag, std::atomic<double>* grad_core_table, std::atomic<double>* aver_grad
@@ -90,6 +89,7 @@ void grad_desc_async_sparse::ASAGA_Async_Loop(double* X, double* Y, size_t* Jc, 
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<int> distribution(0, N - 1);
     int regular = model->get_regularizer();
+    int iter_no;
     double* lambda = model->get_params();
     double* inconsis_x = new double[MAX_DIM];
     for(size_t i = 0; i < inner_iters; i ++) {
@@ -98,6 +98,7 @@ void grad_desc_async_sparse::ASAGA_Async_Loop(double* X, double* Y, size_t* Jc, 
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
             inconsis_x[Ir[k]] = x[Ir[k]];
         }
+        iter_no = pass_counter.fetch_add(1);
         double inconsis_grad_core = grad_core_table[rand_samp];
         double core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, inconsis_x);
         double incr_grad_core = core - inconsis_grad_core;
@@ -115,10 +116,9 @@ void grad_desc_async_sparse::ASAGA_Async_Loop(double* X, double* Y, size_t* Jc, 
             fetch_n_add_atomic(aver_grad[index], incr_grad_core * X[j] / N);
         }
         // For Matlab
+        // FIXME: Whether to LOCK storing
         if(is_store_result) {
-            std::lock_guard<std::mutex> lock(counter_mutex);
-            pass_counter.fetch_add(1);
-            if(!(pass_counter % (3 * N))) {
+            if(!((iter_no + 1) % (3 * N))) {
                 stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N, (double *)x));
             }
         }

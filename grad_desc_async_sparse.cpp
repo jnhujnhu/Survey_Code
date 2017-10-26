@@ -10,8 +10,6 @@
 
 extern size_t MAX_DIM;
 
-std::mutex katyusha_mutex;
-
 void grad_desc_async_sparse::Partial_Gradient(double* full_grad_core, size_t thread_no
     , double* X, double* Y, size_t* Jc, size_t* Ir, std::atomic<double>* full_grad
     , size_t N, blackbox* model, size_t _thread, double* _weights, std::atomic<double>* reweight_diag) {
@@ -162,6 +160,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Single(double* X, double
     return NULL;
 }
 
+std::atomic<int> SVRG_counter(0);
 void grad_desc_async_sparse::Prox_ASVRG_Async_Inner_Loop(double* X, double* Y, size_t* Jc
     , size_t* Ir, size_t N, std::atomic<double>* x, std::atomic<double>* aver_x
     , blackbox* model, size_t m, size_t inner_iters, double step_size, std::atomic<double>* reweight_diag
@@ -172,14 +171,15 @@ void grad_desc_async_sparse::Prox_ASVRG_Async_Inner_Loop(double* X, double* Y, s
     std::uniform_int_distribution<int> distribution(0, N - 1);
 
     int regular = model->get_regularizer();
+    int iter_no;
     double* lambda = model->get_params();
-
     double* inconsis_x = new double[MAX_DIM];
     for(size_t j = 0; j < inner_iters; j ++) {
         int rand_samp = distribution(generator);
         // Inconsistant Read [X].
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++)
             inconsis_x[Ir[k]] = x[Ir[k]];
+        iter_no = SVRG_counter.fetch_add(1);
         double inner_core = model->first_component_oracle_core_sparse(X, Y
                     , Jc, Ir, N, rand_samp, inconsis_x);
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
@@ -192,7 +192,7 @@ void grad_desc_async_sparse::Prox_ASVRG_Async_Inner_Loop(double* X, double* Y, s
                     , reweight_diag[index] * step_size, lambda) - inconsis_x[index];
             // Atomic Write
             fetch_n_add_atomic(x[index], incr_x);
-            fetch_n_add_atomic(aver_x[index], incr_x * (m - j) / m);
+            fetch_n_add_atomic(aver_x[index], incr_x * (m - iter_no) / m);
         }
     }
     delete[] inconsis_x;
@@ -218,6 +218,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Async(double* X, double*
         double* outter_x = model->get_model();
         double* full_grad_core = new double[N];
         double* full_grad;
+        SVRG_counter = 0;
         // Full Gradient
         if(i == 0) {
             full_grad = Comp_Full_Grad_Parallel(full_grad_core, thread_no
@@ -445,6 +446,8 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Single(double* X, double
     return NULL;
 }
 
+std::mutex katyusha_mutex;
+std::atomic<int> Katyu_counter(0);
 void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
     , size_t* Jc, size_t* Ir, size_t N, std::atomic<double>* x, std::atomic<double>* y
     , std::atomic<double>* z, std::atomic<double>* aver_y, blackbox* model, size_t m, size_t inner_iters
@@ -456,8 +459,8 @@ void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
     std::default_random_engine generator(rd());
     std::uniform_int_distribution<int> distribution(0, N - 1);
     int regular = model->get_regularizer();
+    int iter_no;
     double* lambda = model->get_params();
-
     double* incr_x = new double[MAX_DIM];
     double* incr_y = new double[MAX_DIM];
     double* incr_z = new double[MAX_DIM];
@@ -469,6 +472,7 @@ void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
         // Inconsistant Read X.
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++)
             inconsis_x[Ir[k]] = x[Ir[k]];
+        iter_no = Katyu_counter.fetch_add(1);
         double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, inconsis_x);
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
             size_t index = Ir[k];
@@ -501,11 +505,11 @@ void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
                 case regularizer::L2:
                 case regularizer::ELASTIC_NET:{ // Strongly Convex Case
                     fetch_n_add_atomic(aver_y[index],  incr_y[index]
-                            * equal_ratio2(compos_pow[j], compos_factor, compos_pow[m - j], m - j) / compos_base);
+                            * equal_ratio2(compos_pow[j], compos_factor, compos_pow[m - iter_no], m - iter_no) / compos_base);
                     break;
                 }
                 case regularizer::L1:{ // Non-Strongly Convex Case
-                    fetch_n_add_atomic(aver_y[index], incr_y[index] * (m - j) / m);
+                    fetch_n_add_atomic(aver_y[index], incr_y[index] * (m - iter_no) / m);
                     break;
                 }
                 default:
@@ -581,6 +585,7 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double*
         for(size_t k = 0; k < MAX_DIM; k ++)
             x[k] = tau_1 * z[k] + tau_2 * outter_x[k]
                              + (1 - tau_1 - tau_2) * y[k];
+        Katyu_counter = 0;
         // Parallel INNER LOOP
         std::vector<std::thread> thread_pool;
         for(size_t k = 1; k <= thread_no; k ++) {
