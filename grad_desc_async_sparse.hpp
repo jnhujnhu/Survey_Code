@@ -29,8 +29,16 @@ namespace grad_desc_async_sparse {
         , size_t inner_iters, double step_size, std::atomic<double>* reweight_diag
         , double* full_grad_core, double* full_grad);
 
+    std::vector<double>* ASAGA_Async(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model, size_t iteration_no
+        , size_t thread_no, double L, double step_size, bool is_store_result = false);
+    std::vector<double>* ASAGA_Single(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model, size_t iteration_no
+        , double L, double step_size, bool is_store_result = false);
     std::vector<double>* ASAGA(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model, size_t iteration_no
         , size_t thread_no, double L, double step_size, bool is_store_result = false);
+    void ASAGA_Async_Loop(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
+        , std::atomic<double>* x, blackbox* model, size_t inner_iters, double step_size
+        , double* reweight_diag, std::atomic<double>* grad_core_table, std::atomic<double>* aver_grad
+        , std::vector<double>* stored_F, bool is_store_result);
 
     // FIXME: Diverge if without lock with more than 3 threads.
     std::vector<double>* A_Katyusha(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model, size_t iteration_no

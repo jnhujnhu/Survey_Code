@@ -53,25 +53,6 @@ inline void copy_vec(double* vec_to, double* vec_from) {
         vec_to[i] = vec_from[i];
 }
 
-inline void copy_vec_atomic(std::atomic<double>* vec_to, std::atomic<double>* vec_from) {
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        double temp = vec_from[i];
-        vec_to[i] = temp;
-    }
-}
-
-inline void copy_vec_nonatomic(std::atomic<double>* vec_to, double* vec_from) {
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        vec_to[i] = vec_from[i];
-    }
-}
-
-inline void copy_vec_re_nonatomic(double* vec_to, std::atomic<double>* vec_from) {
-    for(size_t i = 0; i < MAX_DIM; i ++) {
-        vec_to[i] = vec_from[i];
-    }
-}
-
 inline void fetch_n_add_atomic(std::atomic<double> &atom, double increment) {
     double o_atom = atom.load();
     while(!atom.compare_exchange_weak(o_atom, o_atom + increment))

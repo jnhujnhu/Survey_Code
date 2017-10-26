@@ -2,7 +2,7 @@ clear;mex_all;
 load 'real-sim.mat';
 %load 'kdda.mat';
 %load 'rcv1_train.binary.mat';
-%load 'rcv1_full.mat'; 
+%load 'rcv1_full.mat';
 %load 'a9a.mat';
 %load 'Covtype.mat';
 
@@ -21,56 +21,50 @@ X = X';
 %% Set Params
 passes = 300;
 model = 'least_square'; % least_square / svm / logistic
-regularizer = 'L1'; % L1 / L2 / elastic_net
+regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
 lambda1 = 10^(-6); % L2_norm / elastic_net
-lambda2 = 10^(-7); % L1_norm / elastic_net
+lambda2 = 10^(-6); % L1_norm / elastic_net
 L = (max(sum(X.^2, 1)) + lambda1);
 sigma = lambda1;
 is_sparse = issparse(X);
 is_plot = true;
+Mode = 1;
 fprintf('Model: %s-%s\n', regularizer, model);
 
-%% Prox_ASVRG
-algorithm = 'Prox_ASVRG';
-Mode = 2;
+%% ASAGA
+algorithm = 'ASAGA';
 thread_no = 1;
-step_size = 1 / (5 * L);
-loop = int64(passes / 3); % 3 passes per loop
+step_size = 1 / (2 * L);
+loop = int64((passes - 1) * N); % One Extra Pass for initialize SAGA gradient table.
 fprintf('Algorithm: %s\n', algorithm);
 tic;
 hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, thread_no);
 time = toc;
 fprintf('Time: %f seconds \n', time);
- X_SVRG = [0:3:passes]';
-hist1 = [X_SVRG, hist1];
+X_SAGA = [0 1 2:3:passes - 2]';
+hist1 = [X_SAGA, hist1];
 
-%% Prox_ASVRG
-algorithm = 'Prox_ASVRG';
-Mode = 1;
-step_size = 1 / (5 * L);
-loop = int64(passes / 3); % 3 passes per loop
-thread_no = 8;
+%% SAGA
+algorithm = 'ASAGA';
+thread_no = 4;
 fprintf('Algorithm: %s\n', algorithm);
 tic;
 hist2 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, thread_no);
 time = toc;
 fprintf('Time: %f seconds \n', time);
-hist2 = [X_SVRG, hist2];
+hist2 = [X_SAGA, hist2];
 
-%% Prox_ASVRG
-algorithm = 'Prox_ASVRG';
-Mode = 2;
-step_size = 1 / (5 * L);
-loop = int64(passes / 3); % 3 passes per loop
+%% ASAGA
+algorithm = 'ASAGA';
 thread_no = 8;
 fprintf('Algorithm: %s\n', algorithm);
 tic;
 hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, thread_no);
 time = toc;
 fprintf('Time: %f seconds \n', time);
-hist3 = [X_SVRG, hist3];
-clear X_SVRG;
+hist3 = [X_SAGA, hist3];
+clear X_SAGA;
 
 %% Plot
 if(is_plot)
@@ -96,5 +90,5 @@ if(is_plot)
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
     axis([0 passes, 1E-12,aa]);
-    legend('Prox-ASVRG1','ASVRG', 'Prox-ASVRG8');
+    legend('ASAGA1', 'SAGA', 'ASAGA8');
 end

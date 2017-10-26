@@ -46,8 +46,7 @@ double* grad_desc_async_sparse::Comp_Full_Grad_Parallel(double* full_grad_core, 
     // Thread Pool
     std::vector<std::thread> thread_pool;
     std::atomic<double>* full_grad = new std::atomic<double>[MAX_DIM];
-    for(size_t i = 0; i < MAX_DIM; i ++)
-        std::atomic_init(&full_grad[i], double(0.0));
+    memset(full_grad, 0, MAX_DIM * sizeof(double));
     for(size_t i = 1; i <= thread_no; i ++) {
         thread_pool.push_back(std::thread(Partial_Gradient, full_grad_core, thread_no
             , X, Y, Jc, Ir, full_grad, N, model, i, _weights, reweight_diag));
@@ -59,80 +58,6 @@ double* grad_desc_async_sparse::Comp_Full_Grad_Parallel(double* full_grad_core, 
         full_grad_n[i] = full_grad[i];
     delete[] full_grad;
     return full_grad_n;
-}
-
-std::vector<double>* grad_desc_async_sparse::ASAGA(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N
-    , blackbox* model, size_t iteration_no, size_t thread_no, double L, double step_size, bool is_store_result) {
-    // Random Generator
-    std::random_device rd;
-    std::default_random_engine generator(rd());
-    std::uniform_int_distribution<int> distribution(0, N - 1);
-    std::vector<double>* stored_F = new std::vector<double>;
-    int regular = model->get_regularizer();
-    double* lambda = model->get_params();
-    // For Matlab
-    if(is_store_result) {
-        stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
-        // Extra Pass for Create Gradient Table
-        stored_F->push_back((*stored_F)[0]);
-    }
-    double* new_weights = new double[MAX_DIM];
-    double* grad_core_table = new double[N];
-    double* aver_grad = new double[MAX_DIM];
-    // "Anticipate" Update Extra parameters
-    double* reweight_diag = new double[MAX_DIM];
-    memset(aver_grad, 0, MAX_DIM * sizeof(double));
-    memset(reweight_diag, 0, MAX_DIM * sizeof(double));
-    copy_vec(new_weights, model->get_model());
-    // Init Gradient Core Table
-    for(size_t i = 0; i < N; i ++) {
-        grad_core_table[i] = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, i);
-        for(size_t j = Jc[i]; j < Jc[i + 1]; j ++) {
-            aver_grad[Ir[j]] += grad_core_table[i] * X[j] / N;
-            // Compute Re-weight Matrix(Inversed)
-            reweight_diag[Ir[j]] += 1.0 / (double) N;
-        }
-    }
-    // Compute Re-weight Matrix
-    for(size_t i = 0; i < MAX_DIM; i ++)
-        reweight_diag[i] = 1.0 / reweight_diag[i];
-
-    size_t skip_pass = 0;
-    for(size_t i = 0; i < iteration_no; i ++) {
-        int rand_samp = distribution(generator);
-        double core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, new_weights);
-        double past_grad_core = grad_core_table[rand_samp];
-        grad_core_table[rand_samp] = core;
-        for(size_t j = Jc[rand_samp]; j < Jc[rand_samp + 1]; j ++) {
-            size_t index = Ir[j];
-            // Update Weight (Using Unbiased Sparse Estimate of Aver_grad)
-            new_weights[index] -= step_size * ((core - past_grad_core)* X[j]
-                                + reweight_diag[index] * aver_grad[index]);
-            // Update Gradient Table Average
-            aver_grad[index] -= (past_grad_core - core) * X[j] / N;
-            // Re-Weighted Sparse Estimate of regularizer
-            regularizer::proximal_operator(regular, new_weights[index], reweight_diag[index] * step_size, lambda);
-        }
-        // For Matlab
-        if(is_store_result) {
-            if(!(i % N)) {
-                skip_pass ++;
-                if(skip_pass == 3) {
-                    stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N, new_weights));
-                    skip_pass = 0;
-                }
-            }
-        }
-    }
-    model->update_model(new_weights);
-    delete[] new_weights;
-    delete[] grad_core_table;
-    delete[] aver_grad;
-    delete[] reweight_diag;
-    // For Matlab
-    if(is_store_result)
-        return stored_F;
-    return NULL;
 }
 
 std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Single(double* X, double* Y, size_t* Jc, size_t* Ir
@@ -147,7 +72,6 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Single(double* X, double
     double* full_grad = new double[MAX_DIM];
     // "Anticipate" Update Extra parameters
     double* reweight_diag = new double[MAX_DIM];
-    //FIXME: Epoch Size(SVRG / SVRG++)
     double m0 = (double) N * 2.0;
     int regular = model->get_regularizer();
     double* lambda = model->get_params();
@@ -162,9 +86,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Single(double* X, double
         double* full_grad_core = new double[N];
         // Average Iterates
         double* aver_weights = new double[MAX_DIM];
-        //FIXME: SVRG / SVRG++
-        double inner_m = m0;//pow(2, i + 1) * m0;
-        memset(aver_weights, 0, MAX_DIM * sizeof(double));
+        double inner_m = m0;
         memset(full_grad, 0, MAX_DIM * sizeof(double));
         // Full Gradient
         for(size_t j = 0; j < N; j ++) {
@@ -185,7 +107,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Single(double* X, double
             case SVRG_LAST_LAST:
                 break;
             case SVRG_AVER_LAST:
-                copy_vec(aver_weights, model->get_model());
+                copy_vec(aver_weights, inner_weights);
                 break;
             case SVRG_AVER_AVER:
                 copy_vec(inner_weights, model->get_model());
@@ -252,31 +174,28 @@ void grad_desc_async_sparse::Prox_ASVRG_Async_Inner_Loop(double* X, double* Y, s
     int regular = model->get_regularizer();
     double* lambda = model->get_params();
 
+    double* inconsis_x = new double[MAX_DIM];
     for(size_t j = 0; j < inner_iters; j ++) {
         int rand_samp = distribution(generator);
-        // FIXME: Take a snapshot of x?
+        // Inconsistant Read [X].
+        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++)
+            inconsis_x[Ir[k]] = x[Ir[k]];
         double inner_core = model->first_component_oracle_core_sparse(X, Y
-                    , Jc, Ir, N, rand_samp, (double*) x);
-        double* incr_x = new double[MAX_DIM];
+                    , Jc, Ir, N, rand_samp, inconsis_x);
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
             size_t index = Ir[k];
             double val = X[k];
             double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
                         + reweight_diag[index] * full_grad[index];
-            // Inconsistant read
-            double prev_x = x[index];
-            double temp_x = prev_x - step_size * vr_sub_grad;
-            incr_x[index] = regularizer::proximal_operator(regular, temp_x
-                    , reweight_diag[index] * step_size, lambda) - prev_x;
+            double temp_x = inconsis_x[index] - step_size * vr_sub_grad;
+            double incr_x = regularizer::proximal_operator(regular, temp_x
+                    , reweight_diag[index] * step_size, lambda) - inconsis_x[index];
+            // Atomic Write
+            fetch_n_add_atomic(x[index], incr_x);
+            fetch_n_add_atomic(aver_x[index], incr_x * (m - j) / m);
         }
-        // Atomic Write
-        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
-            size_t index = Ir[k];
-            fetch_n_add_atomic(x[index], incr_x[index]);
-            fetch_n_add_atomic(aver_x[index], incr_x[index] * (m - j) / m);
-        }
-        delete[] incr_x;
     }
+    delete[] inconsis_x;
 }
 
 std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Async(double* X, double* Y, size_t* Jc, size_t* Ir
@@ -288,10 +207,9 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Async(double* X, double*
     std::atomic<double>* reweight_diag = new std::atomic<double>[MAX_DIM];
     // Average Iterates
     std::atomic<double>* aver_x = new std::atomic<double>[MAX_DIM];
-    //FIXME: Epoch Size(SVRG / SVRG++)
     double m = (double) N * 2.0;
     memset(reweight_diag, 0, MAX_DIM * sizeof(double));
-    copy_vec_nonatomic(x, model->get_model());
+    copy_vec((double *)x, model->get_model());
     // Init Weight Evaluate
     if(is_store_result)
         stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
@@ -316,11 +234,11 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Async(double* X, double*
             case SVRG_LAST_LAST:
                 break;
             case SVRG_AVER_LAST:
-                copy_vec_nonatomic(aver_x, outter_x);
+                copy_vec((double *)aver_x, (double *)x);
                 break;
             case SVRG_AVER_AVER:
-                copy_vec_nonatomic(x, outter_x);
-                copy_vec_nonatomic(aver_x, outter_x);
+                copy_vec((double *)x, (double *)outter_x);
+                copy_vec((double *)aver_x, (double *)outter_x);
                 break;
             default:
                 throw std::string("400 Unrecognized Mode.");
@@ -539,22 +457,26 @@ void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
     std::uniform_int_distribution<int> distribution(0, N - 1);
     int regular = model->get_regularizer();
     double* lambda = model->get_params();
+
+    double* incr_x = new double[MAX_DIM];
+    double* incr_y = new double[MAX_DIM];
+    double* incr_z = new double[MAX_DIM];
+    double* inconsis_x = new double[MAX_DIM];
     for(size_t j = 0; j < inner_iters; j ++) {
-        int rand_samp = distribution(generator);
-        double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, (double*) x);
-        double* incr_x = new double[MAX_DIM];
-        double* incr_y = new double[MAX_DIM];
-        double* incr_z = new double[MAX_DIM];
         // Lock Read & Write
         std::lock_guard<std::mutex> lock(katyusha_mutex);
-
+        int rand_samp = distribution(generator);
+        // Inconsistant Read X.
+        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++)
+            inconsis_x[Ir[k]] = x[Ir[k]];
+        double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, inconsis_x);
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
             size_t index = Ir[k];
             double val = X[k];
             double katyusha_grad = reweight_diag[index] * full_grad[index]
                                 + val * (inner_core - full_grad_core[rand_samp]);
             // Inconsistant Read
-            double prev_x = x[index], prev_y = y[index], prev_z = z[index];
+            double prev_x = inconsis_x[index], prev_y = y[index], prev_z = z[index];
             // Save Increments
             double temp_z = prev_z - alpha * katyusha_grad;
             incr_z[index] = regularizer::proximal_operator(regular, temp_z, reweight_diag[index] * alpha, lambda)
@@ -591,10 +513,11 @@ void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
                     break;
             }
         }
-        delete[] incr_x;
-        delete[] incr_y;
-        delete[] incr_z;
     }
+    delete[] inconsis_x;
+    delete[] incr_x;
+    delete[] incr_y;
+    delete[] incr_z;
 }
 
 std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double* Y
@@ -619,11 +542,10 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double*
     // "Anticipate" Update Extra parameters
     std::atomic<double>* reweight_diag = new std::atomic<double>[MAX_DIM];
     // init vectors
-    copy_vec_nonatomic(y, model->get_model());
-    copy_vec_nonatomic(z, model->get_model());
-    copy_vec_nonatomic(x, model->get_model());
-    for(size_t i = 0; i < MAX_DIM; i ++)
-        std::atomic_init(&reweight_diag[i], double(0.0));
+    copy_vec((double *)y, model->get_model());
+    copy_vec((double *)z, model->get_model());
+    copy_vec((double *)x, model->get_model());
+    memset(reweight_diag, 0, MAX_DIM * sizeof(double));
     // Init Weight Evaluate
     if(is_store_result)
         stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
@@ -631,7 +553,7 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double*
     for(size_t i = 0; i < iteration_no; i ++) {
         double* full_grad_core = new double[N];
         double* outter_x = (model->get_model());
-        copy_vec_atomic(aver_y, y);
+        copy_vec((double *)aver_y, (double *)y);
         switch(regular) {
             case regularizer::L2:
             case regularizer::ELASTIC_NET: // Strongly Convex Case

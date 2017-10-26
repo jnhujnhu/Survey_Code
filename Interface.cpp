@@ -99,9 +99,10 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             len_stored_F = (size_t) floor((double) iteration_no / N) + 1;
         }
         else if(strcmp(_algo, "ASAGA") == 0) {
+            size_t thread_no = (size_t) mxGetScalar(prhs[14]);
             if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
-            vec_stored_F = grad_desc_async_sparse::ASAGA(X, Y, Jc, Ir, N, model, iteration_no, 1, L, step_size,
-                    is_store_result);
+            vec_stored_F = grad_desc_async_sparse::ASAGA(X, Y, Jc, Ir, N, model, iteration_no, thread_no
+                , L, step_size, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
@@ -129,7 +130,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             size_t thread_no = (size_t) mxGetScalar(prhs[14]);
             if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
             vec_stored_F = grad_desc_async_sparse::Prox_ASVRG(X, Y, Jc, Ir, N, model, iteration_no, thread_no
-                , Mode, L, step_size,is_store_result);
+                , Mode, L, step_size, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
