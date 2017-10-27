@@ -58,6 +58,7 @@ double* grad_desc_async_sparse::Comp_Full_Grad_Parallel(double* full_grad_core, 
     return full_grad_n;
 }
 
+// Prox_SVRG
 std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Single(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, int Mode, double L, double step_size
     , bool is_store_result) {
@@ -207,7 +208,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG_Async(double* X, double*
     std::atomic<double>* reweight_diag = new std::atomic<double>[MAX_DIM];
     // Average Iterates
     std::atomic<double>* aver_x = new std::atomic<double>[MAX_DIM];
-    double m = (double) N * 2.0;
+    size_t m = N * 2;
     memset(reweight_diag, 0, MAX_DIM * sizeof(double));
     copy_vec((double *)x, model->get_model());
     // Init Weight Evaluate
@@ -302,6 +303,7 @@ std::vector<double>* grad_desc_async_sparse::Prox_ASVRG(double* X, double* Y, si
     }
 }
 
+// Katyusha
 std::vector<double>* grad_desc_async_sparse::A_Katyusha(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, double L, double sigma
     , double step_size, bool is_store_result) {

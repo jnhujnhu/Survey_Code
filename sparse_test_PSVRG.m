@@ -1,5 +1,6 @@
-clear;%mex_all;
-load 'real-sim.mat';
+clear;mex_all;
+%load 'real-sim.mat';
+load news20.binary.mat;
 %load 'kdda.mat';
 %load 'rcv1_train.binary.mat';
 %load 'rcv1_full.mat'; 
@@ -19,7 +20,7 @@ X = X';
 % clear sum1;
 
 %% Set Params
-passes = 300;
+passes = 900;
 model = 'least_square'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
@@ -60,7 +61,6 @@ hist1 = [X_SVRG, hist1];
 
 %% Prox_ASVRG
 algorithm = 'Prox_ASVRG';
-loop = int64(passes / 3); % 3 passes per loop
 thread_no = 8;
 fprintf('Algorithm: %s\n', algorithm);
 tic;

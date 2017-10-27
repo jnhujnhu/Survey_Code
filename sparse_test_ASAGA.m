@@ -1,8 +1,9 @@
 clear;mex_all;
-%load 'real-sim.mat';
+load 'real-sim.mat';
+%load news20.binary.mat;
 %load 'kdda.mat';
 %load 'rcv1_train.binary.mat';
-load 'rcv1_full.mat';
+%load 'rcv1_full.mat';
 %load 'a9a.mat';
 %load 'Covtype.mat';
 
@@ -19,8 +20,8 @@ X = X';
 % clear sum1;
 
 %% Set Params
-passes = 300;
-model = 'least_square'; % least_square / svm / logistic
+passes = 600;
+model = 'logistic'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
 lambda1 = 10^(-5); % L2_norm / elastic_net
@@ -35,7 +36,7 @@ fprintf('Model: %s-%s\n', regularizer, model);
 %% ASAGA
 algorithm = 'ASAGA';
 thread_no = 1;
-step_size = 1 / (2 * L);
+step_size = 1 / (4 * L);
 loop = int64((passes - 1) * N); % One Extra Pass for initialize SAGA gradient table.
 fprintf('Algorithm: %s\n', algorithm);
 tic;
@@ -45,7 +46,7 @@ fprintf('Time: %f seconds \n', time);
 X_SAGA = [0 1 2:3:passes - 2]';
 hist1 = [X_SAGA, hist1];
 
-%% SAGA
+%% ASAGA
 algorithm = 'ASAGA';
 thread_no = 8;
 fprintf('Algorithm: %s\n', algorithm);
@@ -54,17 +55,7 @@ hist2 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, 
 time = toc;
 fprintf('Time: %f seconds \n', time);
 hist2 = [X_SAGA, hist2];
-
-%% ASAGA
-% algorithm = 'ASAGA';
-% thread_no = 8;
-% fprintf('Algorithm: %s\n', algorithm);
-% tic;
-% hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, thread_no);
-% time = toc;
-% fprintf('Time: %f seconds \n', time);
-% hist3 = [X_SAGA, hist3];
-% clear X_SAGA;
+clear X_SAGA;
 
 %% Plot
 if(is_plot)

@@ -29,6 +29,16 @@ namespace grad_desc_async_sparse {
         , size_t inner_iters, double step_size, std::atomic<double>* reweight_diag
         , double* full_grad_core, double* full_grad);
 
+    ////// TEST //////
+    void ASVRG_Async_plus_Inner_Loop(double* X, double* Y, size_t* Jc
+        , size_t* Ir, size_t N, std::atomic<double>* x, blackbox* model, size_t m
+        , size_t inner_iters, double step_size, double* reweight_diag
+        , double* full_grad_core, std::atomic<double>* full_grad, size_t thread_no
+        , size_t _thread, std::vector<double>* stored_F, bool is_store_result);
+    std::vector<double>* ASVRG_Async_plus(double* X, double* Y, size_t* Jc, size_t* Ir
+        , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, double L, double step_size
+        , bool is_store_result);
+
     std::vector<double>* ASAGA_Async(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model, size_t iteration_no
         , size_t thread_no, double L, double step_size, bool is_store_result = false);
     std::vector<double>* ASAGA_Single(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, blackbox* model, size_t iteration_no
