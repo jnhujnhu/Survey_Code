@@ -2,18 +2,19 @@ clear;mex_all;
 %load 'real-sim.mat';
 %load 'rcv1_train.binary.mat';
 load 'a9a.mat';
+%load news20.binary.mat;
 %load 'Covtype.mat';
 %% Parse Data
 % X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
-X = full(X');
+X = X';
 
 %% Normalize Data
-% sum1 = 1./sqrt(sum(X.^2, 1));
-% if abs(sum1(1) - 1) > 10^(-10)
-%     X = X.*repmat(sum1, Dim, 1);
-% end
-% clear sum1;
+sum1 = 1./sqrt(sum(X.^2, 1));
+if abs(sum1(1) - 1) > 10^(-10)
+    X = X.*repmat(sum1, Dim, 1);
+end
+clear sum1;
 
 %% Set Params
 passes = 300;

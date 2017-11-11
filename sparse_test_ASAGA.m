@@ -1,14 +1,14 @@
 clear;mex_all;
-load 'real-sim.mat';
+%load 'real-sim.mat';
 %load news20.binary.mat;
 %load 'kdda.mat';
-%load 'rcv1_train.binary.mat';
+load 'rcv1_train.binary.mat';
 %load 'rcv1_full.mat';
 %load 'a9a.mat';
 %load 'Covtype.mat';
 
 %% Parse Data
-% X = [ones(size(X, 1), 1) X];
+X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
 X = X';
 
@@ -20,8 +20,8 @@ X = X';
 % clear sum1;
 
 %% Set Params
-passes = 600;
-model = 'logistic'; % least_square / svm / logistic
+passes = 300;
+model = 'least_square'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
 lambda1 = 10^(-5); % L2_norm / elastic_net
@@ -35,7 +35,7 @@ fprintf('Model: %s-%s\n', regularizer, model);
 
 %% ASAGA
 algorithm = 'ASAGA';
-thread_no = 1;
+thread_no = 8;
 step_size = 1 / (4 * L);
 loop = int64((passes - 1) * N); % One Extra Pass for initialize SAGA gradient table.
 fprintf('Algorithm: %s\n', algorithm);
@@ -48,7 +48,7 @@ hist1 = [X_SAGA, hist1];
 
 %% ASAGA
 algorithm = 'ASAGA';
-thread_no = 8;
+thread_no = 1;
 fprintf('Algorithm: %s\n', algorithm);
 tic;
 hist2 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, thread_no);
@@ -57,15 +57,30 @@ fprintf('Time: %f seconds \n', time);
 hist2 = [X_SAGA, hist2];
 clear X_SAGA;
 
+%% A_Katyusha1
+algorithm = 'A_Katyusha';
+% Fixed step_size
+sigma = lambda1;
+thread_no = 8;
+loop = int64(passes / 3); % 3 passes per loop
+fprintf('Algorithm: %s\n', algorithm);
+tic;
+hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, thread_no);
+time = toc;
+fprintf('Time: %f seconds \n', time);
+X_Katyusha = [0:3:passes]';
+hist3 = [X_Katyusha, hist3];
+clear X_Katuysha;
+
 %% Plot
 if(is_plot)
     aa1 = min(hist1(:, 2));
     aa2 = min(hist2(:, 2));
-%     aa3 = min(hist3(:, 2));
+    aa3 = min(hist3(:, 2));
     % aa4 = min(hist4(:, 2));
     % aa5 = min(hist5(:, 2));
     % aa6 = min(hist6(:, 2));
-    minval = min([aa1, aa2]) - 2e-16;
+    minval = min([aa1, aa2, aa3]) - 2e-16;
     aa = max(max([hist1(:, 2)])) - minval;
     b = 1;
 
@@ -73,7 +88,7 @@ if(is_plot)
     set(gcf,'position',[200,100,386,269]);
     semilogy(hist1(1:b:end,1), abs(hist1(1:b:end,2) - minval),'m--o','linewidth',1.6,'markersize',4.5);
     hold on,semilogy(hist2(1:b:end,1), abs(hist2(1:b:end,2) - minval),'k-.^','linewidth',1.6,'markersize',4.5);
-%     hold on,semilogy(hist3(1:b:end,1), abs(hist3(1:b:end,2) - minval),'r--+','linewidth',1.2,'markersize',4.5);
+    hold on,semilogy(hist3(1:b:end,1), abs(hist3(1:b:end,2) - minval),'r--+','linewidth',1.2,'markersize',4.5);
     % hold on,semilogy(hist4(1:b:end,1), abs(hist4(1:b:end,2) - minval),'b-.d','linewidth',1.2,'markersize',4.5);
     % hold on,semilogy(hist5(1:b:end,1), abs(hist5(1:b:end,2) - minval),'m-.^','linewidth',1.2,'markersize',4.5);
     % hold on,semilogy(hist6(1:b:end,1), abs(hist6(1:b:end,2) - minval),'m--<','linewidth',1.2,'markersize',4.5);
@@ -81,5 +96,5 @@ if(is_plot)
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
     axis([0 passes, 1E-12,aa]);
-    legend('ASAGA1', 'ASAGA8');
+    legend('ASAGA8', 'ASAGA1', 'AKatyusha');
 end

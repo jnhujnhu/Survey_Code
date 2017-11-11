@@ -246,6 +246,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "FSVRG") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("404 Not Done Yet.");
+            else
+                vec_stored_F = grad_desc_acc_dense::FSVRG(X, Y, N, model, iteration_no, L, sigma, step_size,
+                    is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else if(strcmp(_algo, "Prox_SVRG_CP") == 0) {
             if(is_sparse)
                 mexErrMsgTxt("404 Not Done Yet.");
@@ -270,6 +279,14 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             else
                 vec_stored_F = grad_desc_acc_dense::SGD_SCP2(X, Y, N, model, iteration_no, L, step_size,
                     is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "AsyAcc1") == 0) {
+            size_t thread_no = (size_t) mxGetScalar(prhs[14]);
+            if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
+            vec_stored_F = grad_desc_async_sparse::AsyAcc1__Async(X, Y, Jc, Ir, N, model, iteration_no, thread_no
+                , Mode, L, sigma, step_size, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }

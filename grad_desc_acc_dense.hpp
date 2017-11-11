@@ -18,6 +18,8 @@ namespace grad_desc_acc_dense {
 
     std::vector<double>* Acc_Prox_SVRG1(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no
         , double L, double sigma, double step_size, bool is_store_result = false);
+    std::vector<double>* FSVRG(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no, double L
+        , double sigma, double step_size, bool is_store_result);
     // Only for Ridge Regression
     std::vector<double>* SVRG_LS(double* X, double* Y, size_t N, blackbox* model, size_t iteration_no
         , size_t interval, int Mode, int LSF_Mode, int LSC_Mode, int LSM_Mode

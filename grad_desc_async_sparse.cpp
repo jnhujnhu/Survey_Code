@@ -403,11 +403,11 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Single(double* X, double
                 regularizer::proximal_operator(regular, z[index], reweight_diag[index] * alpha, lambda);
 
                 ////// For Katyusha With Update Option I //////
-                // y[index] = x[index] - step_size_y * katyusha_grad;
-                // regularizer::proximal_operator(regular, y[index], reweight_diag[index] * step_size_y, lambda);
+                y[index] = x[index] - step_size_y * katyusha_grad;
+                regularizer::proximal_operator(regular, y[index], reweight_diag[index] * step_size_y, lambda);
 
                 ////// For Katyusha With Update Option II //////
-                y[index] = x[index] + tau_1 * (z[index] - prev_z);
+                // y[index] = x[index] + tau_1 * (z[index] - prev_z);
                 switch(regular) {
                     case regularizer::L2:
                     case regularizer::ELASTIC_NET: // Strongly Convex Case
@@ -451,9 +451,9 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Single(double* X, double
 std::mutex katyusha_mutex;
 std::atomic<int> Katyu_counter(0);
 void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
-    , size_t* Jc, size_t* Ir, size_t N, std::atomic<double>* x, std::atomic<double>* y
-    , std::atomic<double>* z, std::atomic<double>* aver_y, blackbox* model, size_t m, size_t inner_iters
-    , double step_size, double tau_1, double tau_2, double alpha, double compos_factor
+    , size_t* Jc, size_t* Ir, size_t N, std::atomic<double>* y, std::atomic<double>* z
+    , std::atomic<double>* aver_y, blackbox* model, size_t m, size_t inner_iters
+    , double step_size_y, double tau_1, double tau_2, double alpha, double compos_factor
     , double compos_base, std::atomic<double>* reweight_diag, double* full_grad_core
     , double* full_grad, double* compos_pow, double* outter_x) {
     // Random Generator
@@ -463,17 +463,20 @@ void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
     int regular = model->get_regularizer();
     int iter_no;
     double* lambda = model->get_params();
-    double* incr_x = new double[MAX_DIM];
     double* incr_y = new double[MAX_DIM];
     double* incr_z = new double[MAX_DIM];
     double* inconsis_x = new double[MAX_DIM];
+    double* inconsis_y = new double[MAX_DIM];
+    double* inconsis_z = new double[MAX_DIM];
     for(size_t j = 0; j < inner_iters; j ++) {
-        // Lock Read & Write
-        std::lock_guard<std::mutex> lock(katyusha_mutex);
         int rand_samp = distribution(generator);
         // Inconsistant Read X.
-        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++)
-            inconsis_x[Ir[k]] = x[Ir[k]];
+        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+            inconsis_y[Ir[k]] = y[Ir[k]];
+            inconsis_z[Ir[k]] = z[Ir[k]];
+            inconsis_x[Ir[k]] = tau_1 * inconsis_z[Ir[k]] + tau_2 * outter_x[Ir[k]]
+                + (1.0 - tau_1 - tau_2) * inconsis_y[Ir[k]];
+        }
         iter_no = Katyu_counter.fetch_add(1);
         double inner_core = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, rand_samp, inconsis_x);
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
@@ -481,47 +484,47 @@ void grad_desc_async_sparse::A_Katyusha_Async_Inner_Loop(double* X, double* Y
             double val = X[k];
             double katyusha_grad = reweight_diag[index] * full_grad[index]
                                 + val * (inner_core - full_grad_core[rand_samp]);
-            // Inconsistant Read
-            double prev_x = inconsis_x[index], prev_y = y[index], prev_z = z[index];
             // Save Increments
-            double temp_z = prev_z - alpha * katyusha_grad;
+            double temp_z = inconsis_z[index] - alpha * katyusha_grad;
             incr_z[index] = regularizer::proximal_operator(regular, temp_z, reweight_diag[index] * alpha, lambda)
-                    - prev_z;
+                    - inconsis_z[index];
+            ////// For Katyusha With Update Option I //////
+            double temp_y = inconsis_x[index] - step_size_y * katyusha_grad;
+            incr_y[index] = regularizer::proximal_operator(regular, temp_y, reweight_diag[index] * step_size_y, lambda)
+                - inconsis_y[index];
+
             ////// For Katyusha With Update Option II //////
-            incr_y[index] = prev_x + tau_1 * incr_z[index] - prev_y;
-            if(j < m - 1)
-                incr_x[index] = tau_1 * (incr_z[index] + prev_z) + tau_2 * outter_x[index]
-                                 + (1 - tau_1 - tau_2) * (incr_y[index] + prev_y) - prev_x;
+            // incr_y[index] = inconsis_x[index] + tau_1 * incr_z[index] - inconsis_y[index];
         }
 
+        // Lock Write
+        std::lock_guard<std::mutex> lock(katyusha_mutex);
         // Atomic Write
         for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
             size_t index = Ir[k];
             fetch_n_add_atomic(z[index], incr_z[index]);
             fetch_n_add_atomic(y[index], incr_y[index]);
-            // (j + 1)th Inner Iteration
-            if(j < m - 1)
-                fetch_n_add_atomic(x[index], incr_x[index]);
             // Update Average y
-            switch(regular) {
-                case regularizer::L2:
-                case regularizer::ELASTIC_NET:{ // Strongly Convex Case
-                    fetch_n_add_atomic(aver_y[index],  incr_y[index]
-                            * equal_ratio2(compos_pow[j], compos_factor, compos_pow[m - iter_no], m - iter_no) / compos_base);
-                    break;
-                }
-                case regularizer::L1:{ // Non-Strongly Convex Case
-                    fetch_n_add_atomic(aver_y[index], incr_y[index] * (m - iter_no) / m);
-                    break;
-                }
-                default:
-                    throw std::string("500 Internal Error.");
-                    break;
-            }
+            // switch(regular) {
+            //     case regularizer::L2:
+            //     case regularizer::ELASTIC_NET:{ // Strongly Convex Case
+            //         fetch_n_add_atomic(aver_y[index],  incr_y[index]
+            //                 * equal_ratio2(compos_pow[j], compos_factor, compos_pow[m - iter_no], m - iter_no) / compos_base);
+            //         break;
+            //     }
+            //     case regularizer::L1:{ // Non-Strongly Convex Case
+            //         fetch_n_add_atomic(aver_y[index], incr_y[index] * (m - iter_no) / m);
+            //         break;
+            //     }
+            //     default:
+            //         throw std::string("500 Internal Error.");
+            //         break;
+            // }
         }
     }
     delete[] inconsis_x;
-    delete[] incr_x;
+    delete[] inconsis_y;
+    delete[] inconsis_z;
     delete[] incr_y;
     delete[] incr_z;
 }
@@ -543,14 +546,12 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double*
         compos_pow[i] = pow((double)compos_factor, (double)i);
     std::atomic<double>* y = new std::atomic<double>[MAX_DIM];
     std::atomic<double>* z = new std::atomic<double>[MAX_DIM];
-    std::atomic<double>* x = new std::atomic<double>[MAX_DIM];
     std::atomic<double>* aver_y = new std::atomic<double>[MAX_DIM];
     // "Anticipate" Update Extra parameters
     std::atomic<double>* reweight_diag = new std::atomic<double>[MAX_DIM];
     // init vectors
     copy_vec((double *)y, model->get_model());
     copy_vec((double *)z, model->get_model());
-    copy_vec((double *)x, model->get_model());
     memset(reweight_diag, 0, MAX_DIM * sizeof(double));
     // Init Weight Evaluate
     if(is_store_result)
@@ -583,10 +584,6 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double*
         else
             full_grad = Comp_Full_Grad_Parallel(full_grad_core, thread_no
                 , X, Y, Jc, Ir, N, model, outter_x);
-        // 0th Inner Iteration
-        for(size_t k = 0; k < MAX_DIM; k ++)
-            x[k] = tau_1 * z[k] + tau_2 * outter_x[k]
-                             + (1 - tau_1 - tau_2) * y[k];
         Katyu_counter = 0;
         // Parallel INNER LOOP
         std::vector<std::thread> thread_pool;
@@ -598,13 +595,13 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double*
                 inner_iters = m / thread_no;
 
             thread_pool.push_back(std::thread(A_Katyusha_Async_Inner_Loop, X, Y
-                , Jc, Ir, N, x, y, z, aver_y, model, m, inner_iters, step_size
+                , Jc, Ir, N, y, z, aver_y, model, m, inner_iters, step_size_y
                 , tau_1, tau_2, alpha, compos_factor, compos_base, reweight_diag
                 , full_grad_core, full_grad, compos_pow, outter_x));
         }
         for(auto& t : thread_pool)
             t.join();
-        model->update_model((double*) aver_y);
+        model->update_model((double*) y);
         delete[] full_grad_core;
         delete[] full_grad;
         // For Matlab
@@ -612,7 +609,6 @@ std::vector<double>* grad_desc_async_sparse::A_Katyusha_Async(double* X, double*
             stored_F->push_back(model->zero_oracle_sparse(X, Y, Jc, Ir, N));
         }
     }
-    delete[] x;
     delete[] y;
     delete[] z;
     delete[] aver_y;
