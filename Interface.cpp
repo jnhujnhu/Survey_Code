@@ -3,6 +3,7 @@
 #include "grad_desc_sparse.hpp"
 #include "grad_desc_sd_sparse.hpp"
 #include "grad_desc_acc_dense.hpp"
+#include "grad_desc_MiG.hpp"
 #include "grad_desc_async_sparse.hpp"
 #include "grad_desc_dense.hpp"
 #include "svm.hpp"
@@ -70,7 +71,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             model = new svm(2, lambdas, regularizer);
         }
         else mexErrMsgTxt("400 Unrecognized model.");
-        delete[] _model;
+        //delete[] _model;
         model->set_init_weights(init_weight);
 
         char* _algo = new char[MAX_PARAM_STR_LEN];
@@ -195,14 +196,21 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         }
         else if(strcmp(_algo, "SVRG_SD") == 0) {
             size_t interval = (size_t) mxGetScalar(prhs[14]);
-            if(is_sparse)
-                vec_stored_F = grad_desc_sd_sparse::SVRG_SD(X, Y, Jc, Ir, N, model, iteration_no, interval, L, sigma, step_size,
-                    is_store_result);
+            if(strcmp(_model, "logistic") == 0) {
+                size_t Newtons_steps = (size_t) mxGetScalar(prhs[15]);
+                vec_stored_F = grad_desc_dense::SVRG_SD_Log(X, Y, N, model, iteration_no, interval, L, sigma, step_size,
+                    Newtons_steps ,is_store_result);
+            }
             else {
-                double r = mxGetScalar(prhs[15]);
-                double* SV = mxGetPr(prhs[16]);
-                vec_stored_F = grad_desc_dense::SVRG_SD(X, Y, N, model, iteration_no, interval, L, sigma, step_size,
-                    r, SV, is_store_result);
+                if(is_sparse)
+                    vec_stored_F = grad_desc_sd_sparse::SVRG_SD(X, Y, Jc, Ir, N, model, iteration_no, interval, L, sigma, step_size,
+                        is_store_result);
+                else {
+                    double r = mxGetScalar(prhs[15]);
+                    double* SV = mxGetPr(prhs[16]);
+                    vec_stored_F = grad_desc_dense::SVRG_SD(X, Y, N, model, iteration_no, interval, L, sigma, step_size,
+                        r, SV, is_store_result);
+                }
             }
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
@@ -290,6 +298,16 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "Ladder_SVRG") == 0) {
+            if(is_sparse)
+                vec_stored_F = grad_desc_MiG::Ladder_SVRG_sparse(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, sigma
+                    , step_size, is_store_result);
+            else
+                vec_stored_F = grad_desc_MiG::Ladder_SVRG(X, Y, N, model, iteration_no, Mode, L, sigma, step_size,
+                    is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else mexErrMsgTxt("400 Unrecognized algorithm.");
         delete[] _algo;
 
@@ -301,6 +319,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
         }
         delete[] stored_F;
         delete model;
+        delete[] _model;
     } catch(std::string c) {
         std::cerr << c << std::endl;
         //exit(EXIT_FAILURE);

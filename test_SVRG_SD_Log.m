@@ -18,7 +18,7 @@ clear sum1;
 
 %% Set Params
 passes = 120;
-model = 'least_square'; % least_square / svm / logistic
+model = 'logistic'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
 lambda1 = 10^(-6); % L2_norm / elastic_net
@@ -66,19 +66,12 @@ clear X_Katyusha;
 algorithm = 'SVRG_SD';
 sigma = 1.0 / 2.0; % Momentum Constant
 interval = 6000; % Sufficient Decrease Iterate Interval
-step_size = 10 / (7 * L);
+Newton_steps = 1; % Newton Subsolver steps
+step_size = 12 / (7 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
-% for partial SVD(in dense case)
-r = Dim;
-A = 0;
-% SVD for dense case
-if(~is_sparse)
-    [U, S, V] = svds(X', r);
-    A = (S * V')';
-end
 tic;
-hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, r, A);
+hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, Newton_steps);
 time = toc;
 fprintf('Time: %f seconds \n', time);
 hist3 = [X_SVRG, hist3];

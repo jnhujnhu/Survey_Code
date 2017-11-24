@@ -960,3 +960,157 @@ std::vector<double>* grad_desc_dense::SAGA_SD(double* X, double* Y, size_t N, bl
         return stored_F;
     return NULL;
 }
+
+// Only Logistic Regression
+double SD_subsolver(double theta, double* X, double* Y, size_t N, double zeta
+    , double lambda, double* x, double square_p, double square_x, size_t Newtons_steps) {
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, N - 1);
+    double* six = new double[N * sizeof(double)];
+    memset(six, 0, N * sizeof(double));
+    for(size_t i = 0; i < N; i ++) {
+        double _innr = 0.0;
+        for(size_t d = 0; d < MAX_DIM; d ++) {
+            _innr += X[i * MAX_DIM + d] * x[d];
+        }
+        _innr *= - Y[i];
+        six[i] = _innr;
+    }
+    // Only L2 regularizer
+    for(size_t i = 0; i < Newtons_steps; i ++) {
+        double g_sub = - zeta * (1 - theta) * square_p + lambda * square_x;
+        double h_sub = zeta * square_p;
+        for(size_t j = 0; j < N; j ++) {
+            double sigmoid = 1.0 / (exp(-six[j] * theta) + 1);
+            double t_g = six[j] * sigmoid / N;
+            g_sub += t_g;
+            h_sub += (1 -  t_g) * sigmoid * six[j];
+        }
+        theta -= g_sub / h_sub;
+    }
+    return theta;
+}
+
+std::vector<double>* grad_desc_dense::SVRG_SD_Log(double* X, double* Y, size_t N, blackbox* model
+    , size_t iteration_no, size_t interval, double L, double sigma, double step_size, double Newtons_steps
+    , bool is_store_result) {
+    // Random Generator
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::uniform_int_distribution<int> distribution(0, N - 1);
+    std::vector<double>* stored_F = new std::vector<double>;
+    double* x = new double[MAX_DIM];
+    double* y = new double[MAX_DIM];
+    double* x_hat = new double[MAX_DIM];
+    // Trade off parameter
+    double delta = 0.1;
+    double zeta = delta * step_size / (1.0 - L * step_size);
+    double* full_grad = new double[MAX_DIM];
+    double m0 = (double) N * 2.0;
+    int regular = model->get_regularizer();
+    double* lambda = model->get_params();
+    size_t total_iterations = 0;
+    copy_vec(x, model->get_model());
+    copy_vec(x_hat, model->get_model());
+    copy_vec(y, model->get_model());
+    // Init Weight Evaluate
+    if(is_store_result)
+        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+    // OUTTER_LOOP
+    for(size_t i = 0 ; i < iteration_no; i ++) {
+        double* full_grad_core = new double[N];
+        // Average Iterates
+        double* aver_weights = new double[MAX_DIM];
+        double* prev_x_hat = new double[MAX_DIM];
+        double inner_m = m0;
+        memset(prev_x_hat, 0, MAX_DIM * sizeof(double));
+        memset(aver_weights, 0, MAX_DIM * sizeof(double));
+        memset(full_grad, 0, MAX_DIM * sizeof(double));
+
+        switch(regular) {
+            case regularizer::L2:
+            case regularizer::ELASTIC_NET:
+                // FIXME: Update Options.
+                // copy_vec(x, model->get_model());
+                copy_vec(x_hat, x);
+                break;
+            case regularizer::L1:
+                copy_vec(x, y);
+                copy_vec(x_hat, y);
+                break;
+            default:
+                throw std::string("Error2");
+                break;
+        }
+        // Full Gradient
+        for(size_t j = 0; j < N; j ++) {
+            full_grad_core[j] = model->first_component_oracle_core_dense(X, Y, N, j);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                full_grad[k] += X[j * MAX_DIM + k] * full_grad_core[j] / (double) N;
+            }
+        }
+        // INNER_LOOP
+        for(size_t j = 0; j < inner_m; j ++) {
+            int rand_samp = distribution(generator);
+            double inner_core = model->first_component_oracle_core_dense(X, Y, N
+                , rand_samp, x);
+            // Compute Theta_k (every 2000 iter)
+            // Non-acc Normal Loop
+            double theta = 1.0, sigma_i = 1.0;
+            // Acc-SD Loop
+            if(!((j + 1) % interval)) {
+                sigma_i = sigma;
+                double square_p = 0.0, square_x = 0.0;
+                for(size_t k = 0; k < MAX_DIM; k ++) {
+                    double difference = (inner_core - full_grad_core[rand_samp])
+                            * X[rand_samp * MAX_DIM + k];
+                    square_p += difference * difference;
+                    square_x += x[k] * x[k];
+                }
+                theta = SD_subsolver(theta, X, Y, N, zeta, lambda[0], x, square_p
+                    , square_x, Newtons_steps);
+            }
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                double val = X[rand_samp * MAX_DIM + k];
+                double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val + full_grad[k];
+                y[k] = x[k] - step_size * vr_sub_grad;
+                regularizer::proximal_operator(regular, y[k], step_size, lambda);
+                // Non Acc Normal Update x
+                // FIXME: Update Choice x_hat or x.
+                if(sigma_i == 1.0) {
+                    x[k] = y[k];
+                    aver_weights[k] += x[k] / (double) inner_m;
+                }
+                // Acc-SD Update x
+                else {
+                    prev_x_hat[k] = x_hat[k];
+                    x_hat[k] = theta * x[k];
+                    x[k] = y[k] + (1.0 - sigma_i) * (x_hat[k] - prev_x_hat[k]);
+                    aver_weights[k] += x_hat[k] / (double) inner_m;
+                }
+            }
+            total_iterations ++;
+        }
+        model->update_model(aver_weights);
+        // NSC update y
+        if(regular == regularizer::L1) {
+            for(size_t k = 0; k < MAX_DIM; k ++)
+                y[k] =  (x[k] - (1 - sigma) * x_hat[k]) / sigma;
+        }
+        // For Matlab (per m/n passes)
+        if(is_store_result) {
+            stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+        }
+        delete[] aver_weights;
+        delete[] full_grad_core;
+        delete[] prev_x_hat;
+    }
+    delete[] full_grad;
+    delete[] x;
+    delete[] y;
+    delete[] x_hat;
+    if(is_store_result)
+        return stored_F;
+    return NULL;
+}

@@ -1,13 +1,13 @@
 clear;mex_all;
 %load 'real-sim.mat';
-%load 'rcv1_train.binary.mat';
-load 'a9a.mat';
+load 'rcv1_train.binary.mat';
+%load 'a9a.mat';
 %load 'Covtype.mat';
 
 %% Parse Data
 X = [ones(size(X, 1), 1) X];
 [N, Dim] = size(X);
-X = full(X');
+X = X';
 
 %% Normalize Data
 % sum1 = 1./sqrt(sum(X.^2, 1));
@@ -31,21 +31,22 @@ is_plot = true;
 fprintf('Model: %s-%s\n', regularizer, model);
 
 %% Prox_SVRG
-algorithm = 'Prox_SVRG';
-Mode = 2;
-step_size = 1 / (3 * L);
-loop = int64(passes / 3); % 3 passes per loop
-fprintf('Algorithm: %s\n', algorithm);
-tic;
-hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
-time = toc;
-fprintf('Time: %f seconds \n', time);
-X_SVRG = [0:3:passes]';
-hist1 = [X_SVRG, hist1];
+% algorithm = 'Prox_SVRG';
+% Mode = 2;
+% step_size = 1 / (3 * L);
+% loop = int64(passes / 3); % 3 passes per loop
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% X_SVRG = [0:3:passes]';
+% hist1 = [X_SVRG, hist1];
 
 %% Katyusha
 algorithm = 'Katyusha';
 % Fixed step_size
+step_size = 1;
 sigma = lambda1;
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
@@ -57,37 +58,52 @@ X_Katyusha = [0:3:passes]';
 hist2 = [X_Katyusha, hist2];
 clear X_Katyusha;
 
-%% SGD_SCP2
-algorithm = 'SGD_SCP2';
-loop = int64(passes); % 3 passes per loop
-fprintf('Algorithm: %s\n', algorithm);
-tic;
-hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
-time = toc;
-fprintf('Time: %f seconds \n', time);
-X_SGD = [0:1:passes]';
-hist3 = [X_SGD, hist3];
-clear X_SGD;
-
-%% Prox_SVRG_CP
-algorithm = 'Prox_SVRG_CP';
+%% Katyusha
+algorithm = 'Katyusha';
+% Fixed step_size
+sigma = lambda1;
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
+is_sparse = false;
 tic;
-hist4 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
+hist1 = Interface(full(X), y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
 time = toc;
 fprintf('Time: %f seconds \n', time);
-hist4 = [X_SVRG, hist4];
-clear X_SVRG;
+X_Katyusha = [0:3:passes]';
+hist1 = [X_Katyusha, hist1];
+clear X_Katyusha;
+
+% %% SGD_SCP2
+% algorithm = 'SGD_SCP2';
+% loop = int64(passes); % 3 passes per loop
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% X_SGD = [0:1:passes]';
+% hist3 = [X_SGD, hist3];
+% clear X_SGD;
+% 
+% %% Prox_SVRG_CP
+% algorithm = 'Prox_SVRG_CP';
+% loop = int64(passes / 3); % 3 passes per loop
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist4 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, 0, 0, 0);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% hist4 = [X_SVRG, hist4];
+% clear X_SVRG;
 
 %% Plot
 if(is_plot)
     aa1 = min(hist1(:, 2));
     aa2 = min(hist2(:, 2));
-    aa3 = min(hist3(:, 2));
-    aa4 = min(hist4(:, 2));
+%     aa3 = min(hist3(:, 2));
+%     aa4 = min(hist4(:, 2));
     % aa5 = min(hist5(:, 2));
-    minval = min([aa1, aa2, aa3, aa4]) - 2e-16;
+    minval = min([aa1, aa2]) - 2e-16;
     aa = max(max([hist1(:, 2)])) - minval;
     b = 1;
 
@@ -95,13 +111,13 @@ if(is_plot)
     set(gcf,'position',[200,100,386,269]);
     semilogy(hist1(1:b:end,1), abs(hist1(1:b:end,2) - minval),'b--o','linewidth',1.6,'markersize',4.5);
     hold on,semilogy(hist2(1:b:end,1), abs(hist2(1:b:end,2) - minval),'g-.^','linewidth',1.6,'markersize',4.5);
-    hold on,semilogy(hist3(1:b:end,1), abs(hist3(1:b:end,2) - minval),'c--+','linewidth',1.2,'markersize',4.5);
-    hold on,semilogy(hist4(1:b:end,1), abs(hist4(1:b:end,2) - minval),'m-.d','linewidth',1.2,'markersize',4.5);
+%     hold on,semilogy(hist3(1:b:end,1), abs(hist3(1:b:end,2) - minval),'c--+','linewidth',1.2,'markersize',4.5);
+%     hold on,semilogy(hist4(1:b:end,1), abs(hist4(1:b:end,2) - minval),'m-.d','linewidth',1.2,'markersize',4.5);
     % hold on,semilogy(hist5(1:b:end,1), abs(hist5(1:b:end,2) - minval),'k-.^','linewidth',1.2,'markersize',4.5);
     % hold on,semilogy(hist6(1:b:end,1), abs(hist6(1:b:end,2) - minval),'r--<','linewidth',1.2,'markersize',4.5);
     hold off;
     xlabel('Number of effective passes');
     ylabel('Objective minus best');
     axis([0 passes, 1E-12,aa]);
-    legend('Prox-SVRG', 'Katyusha', 'SGD-SCP2', 'Prox-SVRG-CP');
+    legend('full-Katyusha', 'Katyusha');%, 'SGD-SCP2', 'Prox-SVRG-CP');
 end
