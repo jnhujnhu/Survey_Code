@@ -97,7 +97,7 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             else
                 stored_F = grad_desc_dense::SGD(X, Y, N, model, iteration_no, L, step_size,
                     is_store_result);
-            len_stored_F = (size_t) floor((double) iteration_no / N) + 1;
+            len_stored_F = (size_t) floor((double) iteration_no / (3 * N)) + 1;
         }
         else if(strcmp(_algo, "ASAGA") == 0) {
             size_t thread_no = (size_t) mxGetScalar(prhs[14]);
@@ -113,6 +113,15 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
                     is_store_result);
             else
                 vec_stored_F = grad_desc_dense::SAGA(X, Y, N, model, iteration_no, L, step_size,
+                    is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "LSAGA") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("400 Not Done.");
+            else
+                vec_stored_F = grad_desc_MiG::LSAGA(X, Y, N, model, iteration_no, L, step_size,
                     is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
@@ -298,6 +307,14 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }
+        else if(strcmp(_algo, "AsyAcc2") == 0) {
+            size_t thread_no = (size_t) mxGetScalar(prhs[14]);
+            if(!is_sparse) mexErrMsgTxt("400 Async Methods with Dense Input.");
+            vec_stored_F = grad_desc_async_sparse::AsyAcc2__Async(X, Y, Jc, Ir, N, model, iteration_no, thread_no
+                , Mode, L, sigma, step_size, is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
         else if(strcmp(_algo, "Ladder_SVRG") == 0) {
             if(is_sparse)
                 vec_stored_F = grad_desc_MiG::Ladder_SVRG_sparse(X, Y, Jc, Ir, N, model, iteration_no, Mode, L, sigma
@@ -305,6 +322,33 @@ void mexFunction(int nlhs, mxArray* plhs[], int nrhs, const mxArray* prhs[]) {
             else
                 vec_stored_F = grad_desc_MiG::Ladder_SVRG(X, Y, N, model, iteration_no, Mode, L, sigma, step_size,
                     is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "SARAH") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("400 Not Done.");
+            else
+                vec_stored_F = grad_desc_MiG::SARAH(X, Y, N, model, iteration_no, Mode, L, sigma, step_size,
+                    is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "SARAH2") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("400 Not Done.");
+            else
+                vec_stored_F = grad_desc_MiG::SARAH2(X, Y, N, model, iteration_no, Mode, L, sigma, step_size,
+                    is_store_result);
+            stored_F = &(*vec_stored_F)[0];
+            len_stored_F = vec_stored_F->size();
+        }
+        else if(strcmp(_algo, "SCR") == 0) {
+            if(is_sparse)
+                mexErrMsgTxt("400 Not Found.");
+            else
+                vec_stored_F = grad_desc_acc_dense::SCR(X, Y, N, model, iteration_no, L, sigma, sigma,
+                    step_size, is_store_result);
             stored_F = &(*vec_stored_F)[0];
             len_stored_F = vec_stored_F->size();
         }

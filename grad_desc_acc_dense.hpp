@@ -32,6 +32,11 @@ namespace grad_desc_acc_dense {
         , size_t iteration_no, double L, double step_size, bool is_store_result);
     std::vector<double>* Katyusha_plus(double* X, double* Y, size_t N, blackbox* model
         , size_t iteration_no, double L, double sigma, double step_size, bool is_store_result);
+
+    // Only For L2-logistic
+    std::vector<double>* SCR(double* X, double* Y, size_t N, blackbox* model
+        , size_t iteration_no, double L, size_t S1, size_t S2, double rho
+        , bool is_store_result);
 }
 
 #endif

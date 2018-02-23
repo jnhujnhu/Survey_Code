@@ -30,12 +30,12 @@ namespace grad_desc_async_sparse {
         , double* full_grad_core, double* full_grad);
 
     ////// TEST //////
-    void ASVRG_Async_plus_Inner_Loop(double* X, double* Y, size_t* Jc
+    void ASCSG_Inner_Loop(double* X, double* Y, size_t* Jc
         , size_t* Ir, size_t N, std::atomic<double>* x, blackbox* model, size_t m
-        , size_t inner_iters, double step_size, double* reweight_diag
-        , double* full_grad_core, std::atomic<double>* full_grad, size_t thread_no
-        , size_t _thread, std::vector<double>* stored_F, bool is_store_result);
-    std::vector<double>* ASVRG_Async_plus(double* X, double* Y, size_t* Jc, size_t* Ir
+        , size_t inner_iters, double step_size, double* reweight_diag, double* full_grad_core
+        , size_t thread_no, size_t _thread, std::vector<double>* stored_F
+        , bool is_store_result);
+    std::vector<double>* ASCSG_plus(double* X, double* Y, size_t* Jc, size_t* Ir
         , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, double L, double step_size
         , bool is_store_result);
 
@@ -51,12 +51,21 @@ namespace grad_desc_async_sparse {
         , double* reweight_diag, std::atomic<double>* grad_core_table, std::atomic<double>* aver_grad
         , std::vector<double>* stored_F, bool is_store_result);
 
-    // AsyAcc1
+    // AsyAcc1 (Acc_Prox_SVRG variant)
     void AsyAcc1_Inner_Loop(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, std::atomic<double>* x
         , std::atomic<double>* aver_x, blackbox* model, size_t m, size_t inner_iters
         , double step_size, double sigma, std::atomic<double>* reweight_diag, double* full_grad_core
-        , double* full_grad, std::atomic<double>* prev_x);
+        , double* full_grad, std::atomic<double>* moment);
     std::vector<double>* AsyAcc1__Async(double* X, double* Y, size_t* Jc, size_t* Ir
+        , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, int Mode, double L, double sigma, double step_size
+        , bool is_store_result);
+
+    // AsyAcc2 (FSVRG variant)
+    void AsyAcc2_Inner_Loop(double* X, double* Y, size_t* Jc, size_t* Ir, size_t N, std::atomic<double>* x
+        , std::atomic<double>* aver_x, blackbox* model, size_t m, size_t inner_iters
+        , double step_size, double sigma, std::atomic<double>* reweight_diag, double* full_grad_core
+        , double* full_grad, double* x_tilda);
+    std::vector<double>* AsyAcc2__Async(double* X, double* Y, size_t* Jc, size_t* Ir
         , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, int Mode, double L, double sigma, double step_size
         , bool is_store_result);
 

@@ -838,3 +838,102 @@ std::vector<double>* grad_desc_acc_dense::Katyusha_plus(double* X, double* Y, si
         return stored_F;
     return NULL;
 }
+
+
+std::vector<int> random_batch_generator(size_t N, size_t  batch_size) {
+    // Random Generator
+    std::random_device rd;
+    std::default_random_engine generator(rd());
+    std::vector<int> indexes, res;
+    for(size_t i = 0; i < N; i ++)
+        indexes.push_back(i);
+    for(size_t i = 0;i < batch_size; i ++) {
+        std::uniform_int_distribution<int> distribution(0, N - 1 - i);
+        int k = distribution(generator);
+        res.push_back(indexes[k]);
+        indexes.erase(indexes.begin() + k);
+    }
+    return res;
+};
+
+// FIXME: BUG Only For L2-logistic
+std::vector<double>* grad_desc_acc_dense::SCR(double* X, double* Y, size_t N, blackbox* model
+    , size_t iteration_no, double L, size_t S1, size_t S2, double rho
+    , bool is_store_result) {
+    std::vector<double>* stored_F = new std::vector<double>;
+    int regular = model->get_regularizer();
+    double* lambda = model->get_params();
+    // For Matlab
+    if(is_store_result) {
+        stored_F->push_back(model->zero_oracle_dense(X, Y, N));
+    }
+    double* x = new double[MAX_DIM];
+    copy_vec(x, model->get_model());
+    for(size_t i = 0; i < iteration_no; i ++) {
+        std::vector<int> gradient_batch = random_batch_generator(N, S1);
+        std::vector<int> HV_batch = random_batch_generator(N, S2);
+        double* s_grad = new double[MAX_DIM];
+        memset(s_grad, 0, MAX_DIM * sizeof(double));
+        for(int index : gradient_batch) {
+            double core = model->first_component_oracle_core_dense(X, Y, N
+                , index, x);
+            for(size_t j = 0; j < MAX_DIM; j ++) {
+                s_grad[j] += (core * X[index * MAX_DIM + j]
+                    + lambda[0] * x[j]) / S1;
+            }
+        }
+        double* HV_const = new double[S2];
+        memset(HV_const, 0, S2 * sizeof(double));
+        size_t hvi = 0;
+        for(int index : HV_batch) {
+            double sigmoid = 0;
+            for(size_t j = 0; j < MAX_DIM; j ++)
+                sigmoid += X[index * MAX_DIM + j] * x[j];
+            sigmoid = 1.0 / (1 + exp(Y[index] * sigmoid));
+            HV_const[hvi] = sigmoid * (1 - sigmoid) * Y[i] * Y[i];
+            hvi ++;
+        }
+        double* k_grad = new double[MAX_DIM];
+        double* delta = new double[MAX_DIM];
+        memset(delta, 0, MAX_DIM * sizeof(double));
+        copy_vec(k_grad, s_grad);
+        for(size_t j = 0; j < 200; j ++) {
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                delta[k] -= 1.0 / (20.0 * L) * k_grad[k];
+            }
+            size_t hvii = 0;
+            double* temp_HV = new double[MAX_DIM];
+            memset(temp_HV, 0, MAX_DIM * sizeof(double));
+            for(int index : HV_batch) {
+                double innr = 0;
+                for(size_t s = 0; s < MAX_DIM; s ++)
+                    innr += X[index * MAX_DIM + s] * delta[s];
+                for(size_t s = 0; s < MAX_DIM; s ++) {
+                    temp_HV[s] += (HV_const[hvii] * innr * X[index * MAX_DIM + s]
+                        + lambda[0] * delta[s]) / S2;
+                }
+                hvii ++;
+            }
+            double norm = comp_l2_norm(delta);
+            for(size_t k = 0; k < MAX_DIM; k ++) {
+                k_grad[k] = s_grad[k] + temp_HV[k] + rho / 2 * norm
+                        * delta[k];
+            }
+            delete[] temp_HV;
+        }
+        for(size_t k = 0; k < MAX_DIM; k ++) {
+            x[k] += delta[k];
+        }
+        if(!(i % 200) && is_store_result)
+            stored_F->push_back(model->zero_oracle_dense(X, Y, N, x));
+        delete[] delta;
+        delete[] HV_const;
+        delete[] s_grad;
+    }
+    model->update_model(x);
+    delete[] x;
+    // For Matlab
+    if(is_store_result)
+        return stored_F;
+    return NULL;
+}

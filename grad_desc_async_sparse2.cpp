@@ -196,56 +196,53 @@ std::vector<double>* grad_desc_async_sparse::ASAGA(double* X, double* Y, size_t*
 }
 
 std::atomic<int> SVRGp_counter(0);
-void grad_desc_async_sparse::ASVRG_Async_plus_Inner_Loop(double* X, double* Y, size_t* Jc
+void grad_desc_async_sparse::ASCSG_Inner_Loop(double* X, double* Y, size_t* Jc
     , size_t* Ir, size_t N, std::atomic<double>* x, blackbox* model, size_t m
     , size_t inner_iters, double step_size, double* reweight_diag
-    , double* full_grad_core, std::atomic<double>* full_grad, size_t thread_no
-    , size_t _thread, std::vector<double>* stored_F, bool is_store_result) {
+    , double* full_grad_core, size_t thread_no, size_t _thread
+    , std::vector<double>* stored_F, bool is_store_result) {
     // Random Generator
     std::random_device rd;
     std::default_random_engine generator(rd());
-    std::uniform_int_distribution<int> distribution(0, N - 1);
-
     int regular = model->get_regularizer();
     int iter_no;
     double* lambda = model->get_params();
     double* inconsis_x = new double[MAX_DIM];
     double* trace_x = new double[MAX_DIM];
+    double* full_grad = new double[MAX_DIM];
+    size_t batch_lb = ceil((double) N / thread_no * (_thread - 1));
+    size_t batch_ub = ceil((double) N / thread_no * _thread);
+    std::uniform_int_distribution<int> distribution(batch_lb, batch_ub - 1);
     for(size_t j = 0; j < inner_iters; j ++) {
         iter_no = SVRGp_counter.fetch_add(1);
-        if(!(iter_no % (2 * N))) {
-            double* _pf = new double[MAX_DIM];
-            memset(_pf, 0, MAX_DIM * sizeof(double));
-            for(size_t i = ceil((double) N / thread_no * (_thread - 1));
-                    i < ceil((double) N / thread_no * _thread);
-                    i ++) {
-                full_grad_core[i] = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, i, (double*)x);
-                for(size_t j = Jc[i]; j < Jc[i + 1]; j ++)
-                    _pf[Ir[j]] += X[j] * full_grad_core[i] / (double) N;
-            }
-            // Atomic Write
-            for(size_t i = 0; i < MAX_DIM; i ++)
-                fetch_n_add_atomic(full_grad[i], _pf[i]);
-            delete[] _pf;
+        // partial batch gradient
+        memset(full_grad, 0, MAX_DIM * sizeof(double));
+        for(size_t i = batch_lb; i < batch_ub; i ++) {
+            full_grad_core[i] = model->first_component_oracle_core_sparse(X, Y, Jc, Ir, N, i, (double*)x);
+            for(size_t j = Jc[i]; j < Jc[i + 1]; j ++)
+                full_grad[Ir[j]] += X[j] * full_grad_core[i] / (double) N;
         }
-        int rand_samp = distribution(generator);
-        // Inconsistant Read [X].
-        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++)
-            inconsis_x[Ir[k]] = x[Ir[k]];
+        // inner loop
+        for(size_t i = 0; i < 0.5 * N; i ++) {
+            int rand_samp = distribution(generator);
+            // Inconsistant Read [X].
+            for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++)
+                inconsis_x[Ir[k]] = x[Ir[k]];
 
-        double inner_core = model->first_component_oracle_core_sparse(X, Y
-                    , Jc, Ir, N, rand_samp, inconsis_x);
-        for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
-            size_t index = Ir[k];
-            double val = X[k];
-            double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
-                        + reweight_diag[index] * full_grad[index];
-            double temp_x = inconsis_x[index] - step_size * vr_sub_grad;
-            double incr_x = regularizer::proximal_operator(regular, temp_x
-                    , reweight_diag[index] * step_size, lambda) - inconsis_x[index];
-            trace_x[index] = inconsis_x[index] + incr_x;
-            // Atomic Write
-            fetch_n_add_atomic(x[index], incr_x);
+            double inner_core = model->first_component_oracle_core_sparse(X, Y
+                        , Jc, Ir, N, rand_samp, inconsis_x);
+            for(size_t k = Jc[rand_samp]; k < Jc[rand_samp + 1]; k ++) {
+                size_t index = Ir[k];
+                double val = X[k];
+                double vr_sub_grad = (inner_core - full_grad_core[rand_samp]) * val
+                            + reweight_diag[index] * full_grad[index];
+                double temp_x = inconsis_x[index] - step_size * vr_sub_grad;
+                double incr_x = regularizer::proximal_operator(regular, temp_x
+                        , reweight_diag[index] * step_size, lambda) - inconsis_x[index];
+                trace_x[index] = inconsis_x[index] + incr_x;
+                // Atomic Write
+                fetch_n_add_atomic(x[index], incr_x);
+            }
         }
         // For Matlab
         if(is_store_result) {
@@ -257,7 +254,7 @@ void grad_desc_async_sparse::ASVRG_Async_plus_Inner_Loop(double* X, double* Y, s
     delete[] inconsis_x;
 }
 
-std::vector<double>* grad_desc_async_sparse::ASVRG_Async_plus(double* X, double* Y, size_t* Jc, size_t* Ir
+std::vector<double>* grad_desc_async_sparse::ASCSG_plus(double* X, double* Y, size_t* Jc, size_t* Ir
     , size_t N, blackbox* model, size_t iteration_no, size_t thread_no, double L, double step_size
     , bool is_store_result) {
     std::vector<double>* stored_F = new std::vector<double>;
@@ -265,12 +262,10 @@ std::vector<double>* grad_desc_async_sparse::ASVRG_Async_plus(double* X, double*
     // "Anticipate" Update Extra parameters
     double* reweight_diag = new double[MAX_DIM];
     double* full_grad_core = new double[N];
-    std::atomic<double>* full_grad = new std::atomic<double>[MAX_DIM];
     // Average Iterates
     std::atomic<double>* aver_x = new std::atomic<double>[MAX_DIM];
     double m = (double) N * 2.0;
     memset(reweight_diag, 0, MAX_DIM * sizeof(double));
-    memset(full_grad, 0, MAX_DIM * sizeof(double));
     copy_vec((double *)x, model->get_model());
     // Init Weight Evaluate
     if(is_store_result)
@@ -291,9 +286,9 @@ std::vector<double>* grad_desc_async_sparse::ASVRG_Async_plus(double* X, double*
         else
             inner_iters = iteration_no / thread_no;
 
-        thread_pool.push_back(std::thread(ASVRG_Async_plus_Inner_Loop, X, Y, Jc
-            , Ir, N, x, model, m, inner_iters, step_size, reweight_diag, full_grad_core
-            , full_grad, k, thread_no, stored_F, is_store_result));
+        thread_pool.push_back(std::thread(ASCSG_Inner_Loop, X, Y, Jc
+            , Ir, N, x, model, m, inner_iters, step_size, reweight_diag
+            , full_grad_core, thread_no, k, stored_F, is_store_result));
     }
     for(auto& t : thread_pool)
         t.join();

@@ -17,22 +17,46 @@ X = full(X');
 % clear sum1;
 
 %% Set Params
-passes = 510;
+passes = 600;
 model = 'least_square'; % least_square / svm / logistic
 regularizer = 'L2'; % L1 / L2 / elastic_net
 init_weight = repmat(0, Dim, 1); % Initial weight
-lambda1 = 10^(-5); % L2_norm / elastic_net
+lambda1 = 0; % L2_norm / elastic_net
 lambda2 = 10^(-5); % L1_norm / elastic_net
-L = (max(sum(X.^2, 1)) + lambda1); % For logistic regression
+L = (max(sum(X.^2, 1)) + lambda1);
 sigma = lambda1;
 is_sparse = issparse(X);
 Mode = 1;
 is_plot = true;
 fprintf('Model: %s-%s\n', regularizer, model);
 
+% % SAGA
+% algorithm = 'SAGA';
+% loop = int64((passes - 1) * N); % One Extra Pass for initialize SAGA gradient table.
+% step_size = 2 / (5 * L);
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist1 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% X_SAGA = [0 1 2:3:passes - 2]';
+% hist1 = [X_SAGA, hist1];
+% 
+% % LSAGA
+% algorithm = 'LSAGA';
+% loop = int64((passes - 1) * N); % One Extra Pass for initialize SAGA gradient table.
+% step_size = 2 / (5 * L);
+% fprintf('Algorithm: %s\n', algorithm);
+% tic;
+% hist2 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2);
+% time = toc;
+% fprintf('Time: %f seconds \n', time);
+% hist2 = [X_SAGA, hist2];
+% clear X_SAGA;
+
 %% SVRG
-algorithm = 'Prox_SVRG';
-Mode = 2;
+algorithm = 'SVRG';
+Mode = 1;
 step_size = 4 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
@@ -43,11 +67,9 @@ fprintf('Time: %f seconds \n', time);
 X_SVRG = [0:3:passes]';
 hist1 = [X_SVRG, hist1];
 
-%% Ladder_SVRG
-algorithm = 'Ladder_SVRG';
-Mode = 2;
-sigma = 0.95;
-step_size = 4 / (5 * L);
+%% SARAH
+algorithm = 'SARAH2';
+step_size = 1 / (5 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
 tic;
@@ -61,7 +83,6 @@ clear X_SVRG;
 if(is_plot)
     aa1 = min(hist1(:, 2));
     aa2 = min(hist2(:, 2));
-    % aa3 = min(hist3(:, 2));
     minval = min([aa1, aa2]) - 2e-16;
     aa = max(max([hist1(:, 2), hist2(:, 2)])) - minval;
     b = 1;
@@ -78,5 +99,5 @@ if(is_plot)
     xlabel('Number of iterations');
     ylabel('Objective minus best');
     axis([0 passes, 1E-12,aa]);
-    legend('Prox-SVRG', 'Ladder-SVRG');
+    legend('SVRG', 'SARAH');
 end

@@ -58,7 +58,7 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
     double* lambda = model->get_params();
     // For Matlab
     if(is_store_result) {
-        stored_F = new double[passes + 1];
+        stored_F = new double[passes / 3 + 1];
         stored_F[0] = model->zero_oracle_dense(X, Y, N);
     }
     double* new_weights = new double[MAX_DIM];
@@ -72,8 +72,8 @@ double* grad_desc_dense::SGD(double* X, double* Y, size_t N, blackbox* model, si
         }
         // For Matlab
         if(is_store_result) {
-            if(!((i + 1) % N)) {
-                stored_F[(size_t) floor((double) i / N) + 1] = model->zero_oracle_dense(X, Y, N, new_weights);
+            if(!((i + 1) % (3 * N))) {
+                stored_F[(size_t) floor((double) i / (3 * N)) + 1] = model->zero_oracle_dense(X, Y, N, new_weights);
             }
         }
     }

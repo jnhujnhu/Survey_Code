@@ -71,7 +71,8 @@ step_size = 12 / (7 * L);
 loop = int64(passes / 3); % 3 passes per loop
 fprintf('Algorithm: %s\n', algorithm);
 tic;
-hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1, L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, Newton_steps);
+hist3 = Interface(X, y, algorithm, model, regularizer, init_weight, lambda1 ...
+    , L, step_size, loop, is_sparse, Mode, sigma, lambda2, interval, Newton_steps);
 time = toc;
 fprintf('Time: %f seconds \n', time);
 hist3 = [X_SVRG, hist3];
